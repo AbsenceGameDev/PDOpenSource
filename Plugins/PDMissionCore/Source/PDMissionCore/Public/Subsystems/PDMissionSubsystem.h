@@ -45,7 +45,7 @@ public:
 	void SetMission(int32 ActorID, const FPDMissionBase& PersistentDatum);
 
 	UFUNCTION(BlueprintCallable)
-	void FinishMission(int32 ActorID, const FPDMissionBase& PersistentDatum);
+	bool FinishMission(int32 ActorID, const FPDMissionBase& PersistentDatum);
 	
 public:
 	

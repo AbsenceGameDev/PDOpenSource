@@ -107,7 +107,7 @@ public:
 	void BindMissionEvent(int32 ActorID, int32 mID, const FPDUpdateMission& MissionEventDelegate);
 
 	/** @brief Execute an assigned mission event */
-	bool ExecuteBoundMissionEvent(const int32 ActorID, const int32 mID, const int32 NewFlags);
+	bool ExecuteBoundMissionEvent(const int32 ActorID, const int32 mID, const EPDMissionState NewState);
 
 public:
 	/** @brief Map associating ActorIDs with their mission tracker  */

@@ -40,25 +40,16 @@ void UPDMissionTracker::GetLifetimeReplicatedProps(TArray<class FLifetimePropert
 	DOREPLIFETIME_WITH_PARAMS_FAST(UPDMissionTracker, State, SharedParams);
 }
 
-void UPDMissionTracker::SetMissionValue(const FGameplayTag& BaseTag, const FPDMissionNetDatum& OverrideDatum)
+bool UPDMissionTracker::SetMissionDatum(const FGameplayTag& BaseTag, const FPDMissionNetDatum& OverrideDatum)
 {
-	if (GetOwnerRole() != ROLE_Authority) { return; }
+	if (GetOwnerRole() != ROLE_Authority) { return false; }
 
 	const UPDMissionSubsystem* MissionSubsystem = UPDMissionStatics::GetMissionSubsystem();
-	if (MissionSubsystem == nullptr) { return; }
+	if (MissionSubsystem == nullptr) { return false; }
 
 	const int32 mID = MissionSubsystem->Utility.ResolveMIDViaTag(BaseTag);
 	const FPDMissionRow* DefaultData = MissionSubsystem->Utility.GetDefaultBase(mID);
-	if (DefaultData == nullptr) { return; }
-	
-	FPDMissionNetDatum ClampedDatum = OverrideDatum;
-	FPDMissionState& NewState = ClampedDatum.State;
-
-	// Check limits and clamp if needed
-	if (NewState.MissionConditionHandler.CallerHasRequiredTags(GetOwner()) == false)
-	{
-		return; // can't set mission progress, does not have required tags 
-	}
+	if (DefaultData == nullptr) { return false; }
 	
 	MARK_PROPERTY_DIRTY_FROM_NAME(UPDMissionTracker, State, this);
 	int32 ArrayIndex = mIDToReplIdMap.Contains(mID) ? *mIDToReplIdMap.Find(mID) -1 : INDEX_NONE;
@@ -68,20 +59,45 @@ void UPDMissionTracker::SetMissionValue(const FGameplayTag& BaseTag, const FPDMi
 		ArrayIndex = INDEX_NONE;
 	}
 	
+	const FPDMissionState& NewState = OverrideDatum.State;
 	if (ArrayIndex != INDEX_NONE)
 	{
-		State.Items[ArrayIndex].State.CurrentFlags = NewState.CurrentFlags;
+		State.Items[ArrayIndex].State.Current = NewState.Current;
 		State.Items[ArrayIndex].State.MissionConditionHandler = NewState.MissionConditionHandler;
 		State.MarkItemDirty(State.Items[ArrayIndex]);
 	}
 	else
 	{
-		FPDMissionNetDatum& AddedDatum = State.Items.Add_GetRef(ClampedDatum);
+		FPDMissionNetDatum& AddedDatum = State.Items.Add_GetRef(OverrideDatum);
 		State.MarkItemDirty(AddedDatum);
 		mIDToReplIdMap.Add(mID, AddedDatum.ReplicationID);
 	}
 
-	Server_OnMissionUpdated.Broadcast(DefaultData->Base.mID, NewState.CurrentFlags);
+	Server_OnMissionUpdated.Broadcast(DefaultData->Base.mID, NewState.Current);
+
+	return true;
+}
+
+void UPDMissionTracker::FinalizeOverwriteRef(const FGameplayTag& MissionBaseTag, FPDMissionNetDatum& OverwriteDatum, const FPDMissionBranchBehaviour& BranchBehaviour)
+{
+	switch (BranchBehaviour.Type)
+	{
+	default: // Resolve default as trigger
+	case ETrigger:
+		// Go from locked/inactive to active
+		OverwriteDatum.State.Current = EPDMissionState::EActive;
+		break;
+	case EUnlock:
+		// Go from locked to inactive
+			OverwriteDatum.State.Current = EPDMissionState::EInactive;
+		break;
+	}
+	SetMissionDatum(MissionBaseTag, OverwriteDatum);	
+}
+
+void UPDMissionTracker::FinalizeOverwriteCopy(FGameplayTag MissionBaseTag, FPDMissionNetDatum OverwriteDatum, FPDMissionBranchBehaviour BranchBehaviour)
+{
+	FinalizeOverwriteRef(MissionBaseTag, OverwriteDatum, BranchBehaviour);
 }
 
 
@@ -102,7 +118,7 @@ TArray<FPDMissionNetDatum>& UPDMissionTracker::GetUserMissions()
 	return State.Items;
 }
 
-void UPDMissionTracker::AddMissionDatum(const FPDMissionNetDatum& Mission)
+bool UPDMissionTracker::AddMissionDatum(const FPDMissionNetDatum& Mission)
 {
 	int32 ArrayIndex = mIDToReplIdMap.Contains(Mission.mID) ? *mIDToReplIdMap.Find(Mission.mID) -1 : INDEX_NONE;
 	if (ArrayIndex != INDEX_NONE && State.Items.IsValidIndex(ArrayIndex) == false)
@@ -116,12 +132,14 @@ void UPDMissionTracker::AddMissionDatum(const FPDMissionNetDatum& Mission)
 	{
 		State.Items[ArrayIndex].State = Mission.State;
 		State.MarkItemDirty(State.Items[ArrayIndex]);
-		return;
+		return true;
 	}
 	
 	FPDMissionNetDatum& AddedDatum = State.Items.Add_GetRef(Mission);
 	State.MarkItemDirty(AddedDatum);
 	mIDToReplIdMap.Add(Mission.mID, AddedDatum.ReplicationID);
+
+	return true;
 }
 
 const FPDMissionNetDatum* UPDMissionTracker::GetDatum(int32 SID) const
@@ -149,18 +167,18 @@ const FPDMissionNetDatum* UPDMissionTracker::GetDatum(const FGameplayTag& BaseTa
 	return &State.Items[ArrayIndex];
 }
 
-int32 UPDMissionTracker::GetValue(const FGameplayTag& BaseTag) const
+TEnumAsByte<EPDMissionState> UPDMissionTracker::GetStateSelector(const FGameplayTag& BaseTag) const
 {
 	const UPDMissionSubsystem* MissionSubsystem = UPDMissionStatics::GetMissionSubsystem();
-	if (MissionSubsystem == nullptr) { return INDEX_NONE; }
+	if (MissionSubsystem == nullptr) { return EPDMissionState::EINVALID_STATE; }
 	
 	const FPDMissionRow* Data = MissionSubsystem->Utility.GetDefaultBaseViaTag(BaseTag);
-	if (Data == nullptr) { return INDEX_NONE; }
+	if (Data == nullptr) { return EPDMissionState::EINVALID_STATE; }
 	
 	const int32 ArrayIndex = mIDToReplIdMap.Contains(Data->Base.mID) ? *mIDToReplIdMap.Find(Data->Base.mID) - 1 : INDEX_NONE;
-	if (State.Items.IsValidIndex(ArrayIndex) == false) { return INDEX_NONE; }
+	if (State.Items.IsValidIndex(ArrayIndex) == false) { return EPDMissionState::EINVALID_STATE; }
 
-	return State.Items[ArrayIndex].State.CurrentFlags;
+	return State.Items[ArrayIndex].State.Current;
 }
 
 void UPDMissionTracker::OnDatumUpdated(const FPDMissionNetDatum* UpdatedMissionDatum) const

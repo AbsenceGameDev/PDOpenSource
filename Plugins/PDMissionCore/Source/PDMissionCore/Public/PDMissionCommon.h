@@ -30,20 +30,33 @@
 
 #include "PDMissionCommon.generated.h"
 
-/* Delegates */
-/** @brief Called when a mission updated, used it's mID */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPDUpdateMission, int32, mID, uint8, bNewFlag);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPDTickMission, int32, mID, FPDUpdateMission, UpdateFunction);
-typedef TMap<int32, FPDUpdateMission> FMissionTreeMap;
+/* Forward declarations */
+class UPDMissionTracker;
 
 UENUM()
-enum EMissionBranchBehaviour
+enum EPDMissionBranchBehaviour
 {
-	ETriggerImmediately, // Apply and enable the mission right away
-	ETriggerWithDelay,   // Apply and enable the mission with some given delay
-	EUnlockImmediately,  // Unlock the mission right away, but do not apply nor enable the mission. 
-	EUnlockWithDelay,    // Unlock the mission with some delay, but do not apply nor enable the mission.
+	ETrigger, // Apply and enable the mission, either with a delay or right away
+	EUnlock,  // Unlock the mission, either with a delay or right away, but do not apply nor enable the mission. 
 };
+
+UENUM()
+enum EPDMissionState
+{
+	ECompleted,      // Finished successfully
+	EFailed,         // Finished unsuccessfully  
+	EActive,         // Still active  
+	EInactive,       // User has not triggered/enabled the mission  
+	ELocked,         // User has not unlocked the mission  
+	EPending,        // Mission is in a pending state, i.e. transitioning from one state to another with a delay  
+	EINVALID_STATE,  // Mission is in a pending state, i.e. transitioning from one state to another with a delay  
+};
+
+/* Delegates */
+/** @brief Called when a mission updated, used it's mID */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPDUpdateMission, int32, mID, EPDMissionState, vNewState);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPDTickMission, int32, mID, FPDUpdateMission, UpdateFunction);
+typedef TMap<int32, FPDUpdateMission> FMissionTreeMap;
 
 
 /**
@@ -117,10 +130,10 @@ struct PDMISSIONCORE_API FPDMissionTagCompound
 
 	bool CallerHasRequiredTags(const AActor* Caller) const;
 
-	const void AppendUserTags(TArray<FGameplayTag> AppendTags);
-	const void RemoveUserTags(TArray<FGameplayTag> TagsToRemove);
-	const void RemoveUserTag(FGameplayTag TagToRemove);
-	const void ClearUserTags(AActor* Caller);
+	void AppendUserTags(const TArray<FGameplayTag>& AppendTags);
+	void RemoveUserTags(const TArray<FGameplayTag>& TagsToRemove);
+	void RemoveUserTag(FGameplayTag TagToRemove);
+	void ClearUserTags(AActor* Caller);
 
 	bool operator==(const FPDMissionTagCompound& Other) const;
 	bool operator==(const FPDMissionTagCompound&& Other) const;
@@ -135,6 +148,8 @@ private:
 	TSet<FGameplayTag> RequiredMissionTags{};	
 };
 
+
+
 /**
  * @brief Structure that holds the state information of an active MissionNetDatum. This includes the current value and the current limits of the stat for the said owning mission tracker.
  */
@@ -142,18 +157,18 @@ USTRUCT(BlueprintType)
 struct PDMISSIONCORE_API FPDMissionState
 {
 	GENERATED_BODY()
-	FPDMissionState(int32 _Flags = 0x0, TArray<FGameplayTag> _RequiredMissionTags = {}) : CurrentFlags(_Flags), MissionConditionHandler(_RequiredMissionTags) {};
-	FPDMissionState(int32 _Flags, const FPDMissionTagCompound&_OtherHandler) : CurrentFlags(_Flags), MissionConditionHandler(_OtherHandler) {};
+	FPDMissionState(EPDMissionState _CurrrentState = EPDMissionState::EInactive, TArray<FGameplayTag> _RequiredMissionTags = {}) : Current(_CurrrentState), MissionConditionHandler(_RequiredMissionTags) {};
+	FPDMissionState(EPDMissionState _CurrrentState, const FPDMissionTagCompound&_OtherHandler) : Current(_CurrrentState), MissionConditionHandler(_OtherHandler) {};
 	
-	/** @brief Current mission flags */
+	/** @brief Current mission state */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mission|Datum")
-	int32 CurrentFlags = 0x0;
+	TEnumAsByte<EPDMissionState> Current;
 	
-	/** @brief Flags that need to exist on the actor requesting this mission for it to be approved */
+	/** @brief Tags that need to exist on the actor requesting this mission for it to be approved */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mission|Datum")
 	FPDMissionTagCompound MissionConditionHandler{};
+	
 };
-
 
 /**
  * @brief Structure that holds modifiers for the mission
@@ -184,6 +199,39 @@ public:
 };
 
 /**
+ * @brief Tells us how we want to treat the branch, as trigger or unlock, as delayed or immediate
+ */
+USTRUCT(Blueprintable)
+struct FPDMissionBranchBehaviour
+{
+	GENERATED_BODY()
+	
+	/** @brief Trigger or unlock? */
+	UPROPERTY(EditAnywhere, Category = "Mission Subsystem")
+	TEnumAsByte<EPDMissionBranchBehaviour> Type = EPDMissionBranchBehaviour::ETrigger;
+
+	/** @brief Delay or immediate? */
+	UPROPERTY(EditAnywhere, Category = "Mission Subsystem")	
+	float DelayTime = 0.0f;
+};
+
+/**
+ * @brief Structure that holds the state information of an active MissionNetDatum. This includes the current value and the current limits of the stat for the said owning mission tracker.
+ */
+USTRUCT(BlueprintType)
+struct PDMISSIONCORE_API FPDDelayMissionFunctor
+{
+	GENERATED_BODY()
+
+	FPDDelayMissionFunctor() : bHasRun(false) {};
+	FPDDelayMissionFunctor(uint8 _bHasRun) : bHasRun(_bHasRun) {};
+	FPDDelayMissionFunctor(UPDMissionTracker* Tracker, const FDataTableRowHandle& Target, const FPDMissionBranchBehaviour& TargetBehaviour, struct FTimerHandle& OutHandle);
+
+	UPROPERTY()
+	uint8 bHasRun : 1;
+};
+
+/**
  * @brief 
  */
 USTRUCT(Blueprintable)
@@ -205,7 +253,7 @@ struct FPDMissionBranchElement
 
 	/** @brief Tells us how we want to treat the branch */
 	UPROPERTY(EditAnywhere, Category = "Mission Subsystem")
-	TEnumAsByte<EMissionBranchBehaviour> TargetBehaviour;	
+	FPDMissionBranchBehaviour TargetBehaviour;
 };
 
 /**
@@ -233,6 +281,10 @@ struct FPDMissionRules
 	GENERATED_BODY()
 
 public:
+	FPDMissionRules(): bRepeatable(0) {};
+	FPDMissionRules(FPDMissionTagCompound _MissionConditionHandler, FPDMissionBranch _NextMissionBranch, uint8 bRepeatable)
+		: MissionConditionHandler(_MissionConditionHandler), NextMissionBranch(_NextMissionBranch) ,bRepeatable(0) {};
+	
 	void IterateStatusHandlers(const FGameplayTag& Tag, FPDFMissionModData& OutStatVariables);
 
 	/** @brief Flags that need to exist on the actor requesting this mission for it to be approved */
@@ -240,7 +292,15 @@ public:
 	FPDMissionTagCompound MissionConditionHandler{};
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
-	FPDMissionBranch NextMissionBranch;	
+	FPDMissionBranch NextMissionBranch;
+
+	/** @brief If we get the mission again after finishing it, are we allowed to retrigger it? */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
+	TEnumAsByte<EPDMissionState> EStartState = EPDMissionState::EInactive; 
+	
+	/** @brief If we get the mission again after finishing it, are we allowed to retrigger it? */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
+	uint8 bRepeatable : 1; 
 };
 
 /**
@@ -252,9 +312,10 @@ struct PDMISSIONCORE_API FPDMissionBase
 	GENERATED_BODY()
 
 	FPDMissionBase(const FGameplayTag& _MissionBaseTag = FGameplayTag::EmptyTag, int32 _mID = INDEX_NONE, int32 _Flags = 0x0)
-		: MissionBaseTag(_MissionBaseTag), mID(_mID), MissionFlags(_Flags), MissionTypeTag(_MissionBaseTag.RequestDirectParent()) {}
+		: MissionBaseTag(_MissionBaseTag), mID(_mID), MissionTypeTag(_MissionBaseTag.RequestDirectParent()) {}
 	
 	void ResolveMissionTypeTag();
+	const FGameplayTag& GetMissionTypeTag() { return MissionTypeTag; }
 
 	/** @brief mission tag, expected format 'Mission.<DirectParent>.<MissionBaseTag>' DirectParent should be the mission or type */	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
@@ -263,10 +324,6 @@ struct PDMISSIONCORE_API FPDMissionBase
 	/** @brief mission ID (mID), generated from the mission tag */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = StatData)
 	int32 mID = 0x0;
-	
-	/** @brief Value representation, holds a start value, value limits and value divisor */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
-	int32 MissionFlags{};
 
 private:	
 	/** @brief Type/Category tag. Is the direct parent tag of the MissionBaseTag */

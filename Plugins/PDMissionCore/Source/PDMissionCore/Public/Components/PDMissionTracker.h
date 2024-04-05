@@ -41,9 +41,15 @@ public:
 	 *	Set a stat value with exp, value and level support
 	 */
 	/** @brief Sets the value of the replicated datum with the value of the parameter OverrideDatum. Will clamp it based on limits */
-	UFUNCTION(BlueprintCallable) void  SetMissionValue(const FGameplayTag& BaseTag, const FPDMissionNetDatum& OverrideDatum);
+	UFUNCTION(BlueprintCallable)
+	bool SetMissionDatum(const FGameplayTag& BaseTag, const FPDMissionNetDatum& OverrideDatum);
+
+	void FinalizeOverwriteRef(const FGameplayTag& MissionBaseTag, FPDMissionNetDatum& OverwriteDatum, const FPDMissionBranchBehaviour& BranchBehaviour); 
+	void FinalizeOverwriteCopy(FGameplayTag MissionBaseTag, FPDMissionNetDatum OverwriteDatum, FPDMissionBranchBehaviour BranchBehaviour); 
+	
 	/** @brief Gets the value of the replicated datum  */
-	UFUNCTION(BlueprintCallable) int32 GetValue(const FGameplayTag& BaseTag) const;
+	UFUNCTION(BlueprintCallable)
+	TEnumAsByte<EPDMissionState> GetStateSelector(const FGameplayTag& BaseTag) const;
 	
 	/** @brief  Gets the replicated datum from it's SID */
 	const FPDMissionNetDatum* GetDatum(int32 SID) const;
@@ -54,7 +60,7 @@ public:
 	TArray<FPDMissionNetDatum>& GetUserMissions();
 	
 	/** @brief Adds and tracks new mission data */
-	void AddMissionDatum(const FPDMissionNetDatum& Mission);
+	bool AddMissionDatum(const FPDMissionNetDatum& Mission);
 
 	/** @brief  Function that resolves to dispatching the OnUpdated delegate if possible*/
 	void OnDatumUpdated(const FPDMissionNetDatum* CallingStat) const;

@@ -127,7 +127,7 @@ FPDMissionNetDatum* FPDMissionUtility::GetMissionDatum(int32 ActorID, int32 SID)
 
 void FPDMissionUtility::SetNewMissionDatum(UPDMissionTracker* MissionTracker, int32 SID, const FPDMissionNetDatum& Datum) const
 {
-	MissionTracker->SetMissionValue(GetDefaultBase(SID)->Base.MissionBaseTag, Datum);
+	MissionTracker->SetMissionDatum(GetDefaultBase(SID)->Base.MissionBaseTag, Datum);
 }
 
 void FPDMissionUtility::OverwriteMissionDatum(UPDMissionTracker* MissionTracker, int32 SID, const FPDMissionNetDatum& NewDatum, bool ForceDefault) const
@@ -137,10 +137,10 @@ void FPDMissionUtility::OverwriteMissionDatum(UPDMissionTracker* MissionTracker,
 	ForceDefault = ForceDefault && DefaultMissionBaseDatum != nullptr;
 	FPDMissionNetDatum Datum;
 		Datum.mID = SID;
-		Datum.State.CurrentFlags = ForceDefault ? DefaultMissionBaseDatum->Base.MissionFlags : NewDatum.State.CurrentFlags;
+		Datum.State.Current = ForceDefault ? DefaultMissionBaseDatum->ProgressRules.EStartState : NewDatum.State.Current;
 		Datum.State.MissionConditionHandler = ForceDefault ? DefaultMissionBaseDatum->ProgressRules.MissionConditionHandler : NewDatum.State.MissionConditionHandler;
 	
-	MissionTracker->SetMissionValue(GetDefaultBase(SID)->Base.MissionBaseTag, Datum);
+	SetNewMissionDatum(MissionTracker, SID, Datum);
 }
 
 
@@ -233,12 +233,12 @@ void FPDMissionUtility::InitializeTracker(const int32 ActorID)
 {
 	UPDMissionTracker* MissionTracker = MGETTRACKER_EXITNONAUTH(ActorID, return);
 
-	for (TTuple<int32, FDataTableRowHandle>& BaseStat : MissionLookup)
+	for (TTuple<int32, FDataTableRowHandle>& BaseMission : MissionLookup)
 	{
-		const FPDMissionRow* DefaulMission = BaseStat.Value.GetRow<FPDMissionRow>(TEXT(""));
+		const FPDMissionRow* DefaulMission = BaseMission.Value.GetRow<FPDMissionRow>(TEXT(""));
 		if (DefaulMission == nullptr) { continue; }
 		
-		FPDMissionNetDatum Mission{DefaulMission->Base.mID, FPDMissionState{DefaulMission->Base.MissionFlags, DefaulMission->ProgressRules.MissionConditionHandler}};
+		FPDMissionNetDatum Mission{DefaulMission->Base.mID, FPDMissionState{DefaulMission->ProgressRules.EStartState, DefaulMission->ProgressRules.MissionConditionHandler}};
 		MissionTracker->AddMissionDatum(Mission);
 	}
 }
@@ -247,11 +247,11 @@ void FPDMissionUtility::BindMissionEvent(int32 ActorID, int32 mID, const FPDUpda
 {
 	if (mID == INDEX_NONE) { return; }
 
-	FMissionTreeMap* UserStatEvents = BoundMissionEvents.Find(ActorID);
-	if (UserStatEvents) { UserStatEvents->Emplace(mID, MissionEventDelegate); }
+	FMissionTreeMap* UserEventMapPtr = BoundMissionEvents.Find(ActorID);
+	if (UserEventMapPtr) { UserEventMapPtr->Emplace(mID, MissionEventDelegate); }
 }
 
-bool FPDMissionUtility::ExecuteBoundMissionEvent(const int32 ActorID, const int32 mID, const int32 NewFlags)
+bool FPDMissionUtility::ExecuteBoundMissionEvent(const int32 ActorID, const int32 mID, const EPDMissionState NewState)
 {
 	// Do we have and event map for this user/actor?
 	FMissionTreeMap* UserEventMapPtr = BoundMissionEvents.Find(ActorID);
@@ -261,6 +261,6 @@ bool FPDMissionUtility::ExecuteBoundMissionEvent(const int32 ActorID, const int3
 	const FPDUpdateMission* TempDelegate = UserEventMapPtr->Find(mID);
 	if (TempDelegate == nullptr) { return false; }
 
-	TempDelegate->Broadcast(mID, NewFlags);
+	TempDelegate->Broadcast(mID, NewState);
 	return true;
 }

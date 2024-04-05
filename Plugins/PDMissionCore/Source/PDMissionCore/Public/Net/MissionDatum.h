@@ -40,14 +40,13 @@ public:
 
 	/** @brief Called by it's serializer when this item has been modified */
 	void PostReplicatedChange(const FPDMissionNetDataCompound& InArraySerializer);
-
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = NetDatum)
 	int32 mID = 0x0; /**< @brief Unique SID (StatID). */
 	
 	/** @brief Current State (value and limits) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = NetDatum)
-	FPDMissionState State = {0x0, FPDMissionTagCompound{}};
+	FPDMissionState State = {EPDMissionState::EInactive, FPDMissionTagCompound{}};
 	
 	/** @brief Current Tick behaviour */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
@@ -55,7 +54,7 @@ public:
 
 	friend bool operator==(const FPDMissionNetDatum& A, const FPDMissionNetDatum& B)
 	{
-		return A.mID == B.mID && A.State.CurrentFlags == B.State.CurrentFlags && A.State.MissionConditionHandler == B.State.MissionConditionHandler;
+		return A.mID == B.mID && A.State.Current == B.State.Current && A.State.MissionConditionHandler == B.State.MissionConditionHandler;
 	}
 
 	friend bool operator!=(const FPDMissionNetDatum& A, const FPDMissionNetDatum& B)

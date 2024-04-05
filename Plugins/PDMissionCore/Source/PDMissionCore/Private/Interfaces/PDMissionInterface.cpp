@@ -124,10 +124,10 @@ void FPDPrivateMissionHandler::_GrantMissionToActor(const AActor* CallingActor, 
 	}
 
 	FPDMissionNetDatum OverwriteDatum = *ExistingDatum;
-	if (OverwriteDatum.State.CurrentFlags == INDEX_NONE)
+	if (OverwriteDatum.State.Current == EPDMissionState::EInactive)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("%s, Enabling mission by the ID of '%i' and by name of '%s'"), *BuildString , mID, *MissionName.ToString());
-		OverwriteDatum.State.CurrentFlags = 0b000;
+		OverwriteDatum.State.Current = EPDMissionState::EActive;
 		MissionSubsystem->Utility.OverwriteMissionDatum(MissionTracker, mID, OverwriteDatum);
 		return;
 	}
@@ -176,8 +176,5 @@ void FPDPrivateMissionHandler::_AddTagsToContainer(TArray<FGameplayTag> NewTags,
 
 void FPDPrivateMissionHandler::_RemoveTagsToContainer(TArray<FGameplayTag> DeleteTags, TSet<FGameplayTag>& ExistingTags)
 {
-	for (const FGameplayTag& TagToDelete : DeleteTags)
-	{
-		ExistingTags.Remove(TagToDelete);
-	}
+	for (const FGameplayTag& TagToDelete : DeleteTags) { ExistingTags.Remove(TagToDelete); }
 }
