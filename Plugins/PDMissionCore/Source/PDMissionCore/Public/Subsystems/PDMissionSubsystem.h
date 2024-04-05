@@ -42,9 +42,11 @@ class PDMISSIONCORE_API UPDMissionSubsystem : public UEngineSubsystem
 
 public:
 	UFUNCTION(BlueprintCallable)
-	void SetMission(const FPDMissionBase& PersistentDatum, int32 NewFlags);
+	void SetMission(int32 ActorID, const FPDMissionBase& PersistentDatum);
 
-
+	UFUNCTION(BlueprintCallable)
+	void FinishMission(int32 ActorID, const FPDMissionBase& PersistentDatum);
+	
 public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)

@@ -98,14 +98,14 @@ bool FPDMissionTagCompound::operator==(const FPDMissionTagCompound&& Other) cons
 	return  OptionalUserTags.Difference(Other.OptionalUserTags).Num() == 0 && RequiredMissionTags.Difference(Other.RequiredMissionTags).Num() == 0;
 }
 
-bool FPDMissionTagCompound::CallerHasRequiredTags(AActor* Caller)
+bool FPDMissionTagCompound::CallerHasRequiredTags(const AActor* Caller) const
 {
 	if (Caller == nullptr || Caller->IsValidLowLevelFast() == false || Caller->Implements<UPDMissionInterface>() == false)
 	{
 		return false;
 	}
 	
-	IPDMissionInterface* AsInterface = Cast<IPDMissionInterface>(Caller);
+	const IPDMissionInterface* AsInterface = Cast<const IPDMissionInterface>(Caller);
 	const TSet<FGameplayTag>& UserTagContainer = AsInterface->GetTagContainer();
 
 	for (const FGameplayTag& Tag : OptionalUserTags)

@@ -36,6 +36,16 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPDUpdateMission, int32, mID, uint8
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPDTickMission, int32, mID, FPDUpdateMission, UpdateFunction);
 typedef TMap<int32, FPDUpdateMission> FMissionTreeMap;
 
+UENUM()
+enum EMissionBranchBehaviour
+{
+	ETriggerImmediately, // Apply and enable the mission right away
+	ETriggerWithDelay,   // Apply and enable the mission with some given delay
+	EUnlockImmediately,  // Unlock the mission right away, but do not apply nor enable the mission. 
+	EUnlockWithDelay,    // Unlock the mission with some delay, but do not apply nor enable the mission.
+};
+
+
 /**
  *	@brief Static functions exposed to blueprint
  */
@@ -96,7 +106,7 @@ struct PDMISSIONCORE_API FPDMissionTickBehaviour
 };
 
 /**
- * @brief Structure that holds the tick behaviour settings of a given mission type. This includes the delta-value, the interval between tick of the stat how long the 
+ * @brief Structure that holds the tick behaviour settings of a given mission type. This includes the delta-value, the interval between each 'tick' 
  */
 USTRUCT(BlueprintType)
 struct PDMISSIONCORE_API FPDMissionTagCompound
@@ -105,7 +115,7 @@ struct PDMISSIONCORE_API FPDMissionTagCompound
 	FPDMissionTagCompound(TArray<FGameplayTag> _OptionalUserTags = {}) : OptionalUserTags(_OptionalUserTags) {}
 	FPDMissionTagCompound(const FPDMissionTagCompound& Other) : OptionalUserTags(Other.OptionalUserTags), RequiredMissionTags(Other.RequiredMissionTags) {}
 
-	bool CallerHasRequiredTags(AActor* Caller);
+	bool CallerHasRequiredTags(const AActor* Caller) const;
 
 	const void AppendUserTags(TArray<FGameplayTag> AppendTags);
 	const void RemoveUserTags(TArray<FGameplayTag> TagsToRemove);
@@ -174,6 +184,45 @@ public:
 };
 
 /**
+ * @brief 
+ */
+USTRUCT(Blueprintable)
+struct FPDMissionBranchElement
+{
+	GENERATED_BODY()
+
+	/** @brief  'Target' is the mission we might branch to */
+	UPROPERTY(EditAnywhere, Category = "Mission Subsystem", Meta = (RowType="/Script/PDMissionCore.PDMissionRow"))
+	FDataTableRowHandle Target;
+
+	/** @brief Actual condition to be able to branch to the target */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mission|Datum")
+	FPDMissionTagCompound BranchConditions;
+
+	/** @brief true means it's a direct branch, i.e. 'same questline', false means it's a new questline */
+	UPROPERTY(EditAnywhere, Category = "Mission Subsystem")
+	uint8 bIsDirectBranch : 1;
+
+	/** @brief Tells us how we want to treat the branch */
+	UPROPERTY(EditAnywhere, Category = "Mission Subsystem")
+	TEnumAsByte<EMissionBranchBehaviour> TargetBehaviour;	
+};
+
+/**
+ * @brief 
+ */
+USTRUCT(Blueprintable)
+struct FPDMissionBranch
+{
+	GENERATED_BODY()
+
+	/** @brief Order means priority, idx0 has highest order. So we branch to the highest priority missions if possible and ignore the rest */
+	UPROPERTY(EditAnywhere, Category = "Mission Subsystem")
+	TArray<FPDMissionBranchElement> Branches;
+};
+
+
+/**
  *  @brief Structure that defines mission rules.
  *  @done Write some form of type (FPDMissionTagCompound) that handles comparing the the mission tags with the user tags
  *  @todo Write some type that can handle  
@@ -189,6 +238,9 @@ public:
 	/** @brief Flags that need to exist on the actor requesting this mission for it to be approved */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mission|Datum")
 	FPDMissionTagCompound MissionConditionHandler{};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
+	FPDMissionBranch NextMissionBranch;	
 };
 
 /**
@@ -238,11 +290,12 @@ struct PDMISSIONCORE_API FPDMissionRow : public FTableRowBase
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
 	FPDMissionTickBehaviour TickSettings{};
 	
-	/** @brief Mission rules, what happens when leveling up, what stats are modified, etc */
+	/** @brief Mission rules, what are the conditions to finish the mission, what are it's sub-objectives, what is the branching possibilities, etc */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
 	FPDMissionRules ProgressRules{};
-	
+
 	/** @brief Metadata, Friendly Name & Description */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
 	FPDMissionMetadata Metadata {};
 };
+

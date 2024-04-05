@@ -58,7 +58,7 @@ public:
 	void ReomveTagsToContainer(TArray<FGameplayTag>& Tags);
 	virtual void RemoveTagsToContainer_Implementation(TArray<FGameplayTag>& DeleteTags);	
 
-	const TSet<FGameplayTag>& GetTagContainer() { return TagContainer; }
+	const TSet<FGameplayTag>& GetTagContainer() const { return TagContainer; }
 protected:
 	
 	TSet<FGameplayTag> TagContainer;  

@@ -26,11 +26,7 @@
 			"Enabled": true
 		},
 		{
-			"Name": "PDProgression",
-			"Enabled": true
-		},
-		{
-			"Name": "PDUtility",
+			"Name": "PDMissionCore",
 			"Enabled": true
 		}
 	]

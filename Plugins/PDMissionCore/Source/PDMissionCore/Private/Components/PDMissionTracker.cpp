@@ -168,9 +168,9 @@ void UPDMissionTracker::OnDatumUpdated(const FPDMissionNetDatum* UpdatedMissionD
 	const UPDMissionSubsystem* MissionSubsystem = UPDMissionStatics::GetMissionSubsystem();
 	if (UpdatedMissionDatum == nullptr || MissionSubsystem == nullptr) { return; }
 	
-	const FPDMissionRow* DefaultStat = MissionSubsystem->Utility.GetDefaultBase(UpdatedMissionDatum->mID);
-	if (DefaultStat == nullptr) { return; }
+	const FPDMissionRow* DefaultDatum = MissionSubsystem->Utility.GetDefaultBase(UpdatedMissionDatum->mID);
+	if (DefaultDatum == nullptr) { return; }
 	
-	OnMissionUpdated.Broadcast(DefaultStat->Base.mID, UpdatedMissionDatum->State.CurrentFlags);
+	OnMissionUpdated.Broadcast(DefaultDatum->Base.mID, UpdatedMissionDatum->State.CurrentFlags);
 }
 

@@ -24,7 +24,49 @@
 
 #include "Subsystems/PDMissionSubsystem.h"
 
-void UPDMissionSubsystem::SetMission(const FPDMissionBase& PersistentDatum, int32 NewFlags)
+#include "Components/PDMissionTracker.h"
+
+void UPDMissionSubsystem::SetMission(int32 ActorID, const FPDMissionBase& PersistentDatum)
 {
- 
+}
+
+void UPDMissionSubsystem::FinishMission(int32 ActorID, const FPDMissionBase& PersistentDatum)
+{
+	const FPDMissionRow* DefaultData = Utility.GetDefaultBase(PersistentDatum.mID);
+	UPDMissionTracker* Tracker = Utility.GetActorTracker(ActorID);
+	const AActor* TrackerOwner = Tracker != nullptr ? Tracker->GetOwner() : nullptr;
+	if (DefaultData == nullptr || TrackerOwner  == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Tracker valid: %i, Tracker Owner valid: %i ,  DefaultData valid: %i"), Tracker != nullptr, TrackerOwner != nullptr, DefaultData != nullptr);
+		return;
+	}
+
+	const TArray<FPDMissionBranchElement>& BranchRef = DefaultData->ProgressRules.NextMissionBranch.Branches;
+	const int32 LastIdx = BranchRef.Num() - 1;
+	for (int32 Idx = 0; Idx <= LastIdx; Idx++)
+	{
+		const FPDMissionBranchElement& CurrentBranch = BranchRef[Idx];
+		// Pick first branch we match against, skip any up until that point
+		if (CurrentBranch.BranchConditions.CallerHasRequiredTags(TrackerOwner) == false)
+		{
+			continue;
+		}
+
+		
+		// @todo Delay system? mission timer manager? will think on it a little
+		switch (CurrentBranch.TargetBehaviour)
+		{
+		case ETriggerImmediately:
+			break;
+		case ETriggerWithDelay:
+			break;
+		case EUnlockImmediately:
+			break;
+		case EUnlockWithDelay:
+			break;
+		default: break;
+		}
+
+	}
+	
 }

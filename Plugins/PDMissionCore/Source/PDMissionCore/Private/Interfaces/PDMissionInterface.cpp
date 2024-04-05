@@ -119,7 +119,7 @@ void FPDPrivateMissionHandler::_GrantMissionToActor(const AActor* CallingActor, 
 	{
 		UE_LOG(LogTemp, Warning, TEXT("%s, Enabling mission by the ID of '%i' and by name of '%s'"), *BuildString , mID, *MissionName.ToString());
 		const FPDMissionBase PersistentDatum{MissionTag, mID, 0b0000};
-		MissionSubsystem->SetMission(PersistentDatum, ActorID);
+		MissionSubsystem->SetMission(ActorID, PersistentDatum);
 		return;
 	}
 
@@ -166,7 +166,7 @@ void FPDPrivateMissionHandler::_RemoveMissionFromActor(const AActor* CallingActo
 
 	// Clear mission state and set its flags to INDEX_NONE to makr it as invalid, this way we can skip adding and removing from the map needlessly
 	const FPDMissionBase PersistentDatum{MissionTag, mID, INDEX_NONE};
-	MissionSubsystem->SetMission(PersistentDatum, ActorID);
+	MissionSubsystem->SetMission(ActorID, PersistentDatum);
 }
 
 void FPDPrivateMissionHandler::_AddTagsToContainer(TArray<FGameplayTag> NewTags, TSet<FGameplayTag>& ExistingTags)
