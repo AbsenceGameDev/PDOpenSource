@@ -1,0 +1,29 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Mission Core",
+	"Description": "",
+	"Category": "Other",
+	"CreatedBy": "Ario Amin @ Permafrost Development",
+	"CreatedByURL": "https://github.com/AbsenceGameDev/PDOpenSource",
+	"DocsURL": "https://github.com/AbsenceGameDev/PDOpenSource",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": true,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "PDMissionCore",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "PDMissionEditor",
+			"Type": "Editor",
+			"LoadingPhase": "PreDefault"
+		}
+	]
+}
