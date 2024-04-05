@@ -215,6 +215,7 @@ struct FPDMissionBranchBehaviour
 	float DelayTime = 0.0f;
 };
 
+
 /**
  * @brief Structure that holds the state information of an active MissionNetDatum. This includes the current value and the current limits of the stat for the said owning mission tracker.
  */
@@ -225,11 +226,14 @@ struct PDMISSIONCORE_API FPDDelayMissionFunctor
 
 	FPDDelayMissionFunctor() : bHasRun(false) {};
 	FPDDelayMissionFunctor(uint8 _bHasRun) : bHasRun(_bHasRun) {};
-	FPDDelayMissionFunctor(UPDMissionTracker* Tracker, const FDataTableRowHandle& Target, const FPDMissionBranchBehaviour& TargetBehaviour, struct FTimerHandle& OutHandle);
+	FPDDelayMissionFunctor(UPDMissionTracker* Tracker, const FDataTableRowHandle& Target, const FPDMissionBranchBehaviour& TargetBehaviour);
 
 	UPROPERTY()
 	uint8 bHasRun : 1;
+	
+	TMap<FTimerHandle, FTimerDelegate> OutHandlesMap{};
 };
+
 
 /**
  * @brief 

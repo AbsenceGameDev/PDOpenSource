@@ -55,7 +55,7 @@ public:
 	virtual void AddTagsToContainer_Implementation(TArray<FGameplayTag>& Tags);	
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	void ReomveTagsToContainer(TArray<FGameplayTag>& Tags);
+	void RemoveTagsToContainer(TArray<FGameplayTag>& Tags);
 	virtual void RemoveTagsToContainer_Implementation(TArray<FGameplayTag>& DeleteTags);	
 
 	const TSet<FGameplayTag>& GetTagContainer() const { return TagContainer; }

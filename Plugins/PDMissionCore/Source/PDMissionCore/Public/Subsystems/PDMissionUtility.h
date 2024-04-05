@@ -40,6 +40,7 @@ struct PDMISSIONCORE_API FPDMissionUtility final
 
 public:
 // UTILITY	
+	/** @brief Resolved the mID associated with the given tag. INDEX_NONE if nothing was found */
 	int32 ResolveMIDViaTag(const FGameplayTag& BaseTag) const;
 	
 	/** @brief Gets the tracker associated with the 'ActorID' */

@@ -37,14 +37,14 @@ class PDMISSIONCORE_API UPDMissionTracker : public UActorComponent
 public:
 	FORCEINLINE int32 GetActorID() const { return ActorID; }
 	
-	/*
-	 *	Set a stat value with exp, value and level support
-	 */
 	/** @brief Sets the value of the replicated datum with the value of the parameter OverrideDatum. Will clamp it based on limits */
 	UFUNCTION(BlueprintCallable)
 	bool SetMissionDatum(const FGameplayTag& BaseTag, const FPDMissionNetDatum& OverrideDatum);
 
-	void FinalizeOverwriteRef(const FGameplayTag& MissionBaseTag, FPDMissionNetDatum& OverwriteDatum, const FPDMissionBranchBehaviour& BranchBehaviour); 
+	/** @brief Called when finalizing a overwrite from FinishMission(), used for immediate transition */
+	void FinalizeOverwriteRef(const FGameplayTag& MissionBaseTag, FPDMissionNetDatum& OverwriteDatum, const FPDMissionBranchBehaviour& BranchBehaviour);
+	
+	/** @brief Called when finalizing a overwrite from FinishMission(), used for delayed transition*/
 	void FinalizeOverwriteCopy(FGameplayTag MissionBaseTag, FPDMissionNetDatum OverwriteDatum, FPDMissionBranchBehaviour BranchBehaviour); 
 	
 	/** @brief Gets the value of the replicated datum  */
@@ -94,8 +94,7 @@ public:
 	UPROPERTY(BlueprintAssignable) FPDUpdateMission  OnMissionUpdated;       
 	/** @brief Broadcasts an event when a mission ticks */
 	UPROPERTY(BlueprintAssignable) FPDTickMission    OnMissionTick;
-
+	/** @brief Broadcasts an event when a mission updates, runs only on server */
 	UPROPERTY(BlueprintAssignable) FPDUpdateMission  Server_OnMissionUpdated; 
-
 };
 

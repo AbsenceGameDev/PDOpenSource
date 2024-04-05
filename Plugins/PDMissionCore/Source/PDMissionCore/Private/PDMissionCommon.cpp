@@ -45,7 +45,7 @@ FDataTableRowHandle UPDMissionStatics::CreateRowHandle(UDataTable* Table, FName 
 
 //
 // Mission delay functor
-FPDDelayMissionFunctor::FPDDelayMissionFunctor(UPDMissionTracker* Tracker, const FDataTableRowHandle& Target, const FPDMissionBranchBehaviour& TargetBehaviour, FTimerHandle& OutHandle)
+FPDDelayMissionFunctor::FPDDelayMissionFunctor(UPDMissionTracker* Tracker, const FDataTableRowHandle& Target, const FPDMissionBranchBehaviour& TargetBehaviour)
 {
 	bHasRun = false;
 	const FPDMissionRow* MissionRow = Target.GetRow<FPDMissionRow>("");
@@ -71,14 +71,17 @@ FPDDelayMissionFunctor::FPDDelayMissionFunctor(UPDMissionTracker* Tracker, const
 		Tracker->SetMissionDatum(MissionBaseTag, OverwriteDatum);
 
 		// Dispatch timer
+		FTimerHandle SavedHandle;
 		FTimerManager& WorldTimer = Tracker->GetWorld()->GetTimerManager();
 		const FTimerDelegate Delegate = FTimerDelegate::CreateUObject(Tracker, &UPDMissionTracker::FinalizeOverwriteCopy, MissionBaseTag, OverwriteDatum, TargetBehaviour);
-		WorldTimer.SetTimer(OutHandle, Delegate, TargetBehaviour.DelayTime, false);
+		WorldTimer.SetTimer(SavedHandle, Delegate, TargetBehaviour.DelayTime, false);
+
+		OutHandlesMap.Emplace(SavedHandle, Delegate);
 	}
+
 
 	bHasRun = true;
 }
-
 
 //
 // Progress status handler
@@ -86,11 +89,9 @@ void FPDMissionStatusHandler::AccumulateData(const FGameplayTag& InTag, FPDFMiss
 {
 }
 
-
 void FPDMissionRules::IterateStatusHandlers(const FGameplayTag& Tag, FPDFMissionModData& OutStatVariables)
 {
 }
-
 
 //
 // Mission base helpers
@@ -98,7 +99,6 @@ void FPDMissionBase::ResolveMissionTypeTag()
 {
 	MissionTypeTag = MissionBaseTag.RequestDirectParent();
 }
-
 
 //
 // Progress rules - required tags

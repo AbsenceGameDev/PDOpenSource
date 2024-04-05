@@ -56,7 +56,7 @@ bool UPDMissionSubsystem::FinishMission(int32 ActorID, const FPDMissionBase& Per
 		// @todo Complete/Fail path needs to check if it is repeatable and if yes, how long should it be delayed
 		return false;
 	case EPending:
-		// Avoid retriggering while pending
+		// Avoid re-triggering while pending
 		return false;
 	case ELocked:
 		// @todo Locked path needs to check if conditions for immediate or delayed 'unlocking + completion' have been met  
@@ -76,7 +76,7 @@ bool UPDMissionSubsystem::FinishMission(int32 ActorID, const FPDMissionBase& Per
 	const int32 LastIdx = BranchRef.Num() - 1;
 	TArray<FTimerHandle> OutHandles{};
 	OutHandles.SetNum(BranchRef.Num());
-	TArray<FTimerHandle, FTimerDelegate> OutHandlesMap{};
+	TMap<FTimerHandle, FTimerDelegate> OutHandlesMap{}; // make hashable if not already
 	
 	for (int32 Idx = 0; Idx <= LastIdx; Idx++)
 	{
@@ -89,7 +89,7 @@ bool UPDMissionSubsystem::FinishMission(int32 ActorID, const FPDMissionBase& Per
 		}
 		
 		// @todo Delay system? mission timer manager? will think on it a little
-		NewMissionDispatch = FPDDelayMissionFunctor{Tracker, CurrentBranch.Target, CurrentBranch.TargetBehaviour, OutHandles[Idx]};
+		NewMissionDispatch = FPDDelayMissionFunctor{Tracker, CurrentBranch.Target, CurrentBranch.TargetBehaviour};
 		break; // exit loop after constructing the functor
 	}
 
@@ -101,9 +101,9 @@ bool UPDMissionSubsystem::FinishMission(int32 ActorID, const FPDMissionBase& Per
 		return false;
 	}
 
-	for (const FTimerHandle& TimerHandle : OutHandles)
+	for (const TPair<FTimerHandle, FTimerDelegate>& TimerHandle : NewMissionDispatch.OutHandlesMap)
 	{
-		if (TimerHandle.IsValid() == false) { continue; }
+		if (TimerHandle.Key.IsValid() == false) { continue; }
 
 		// Timer is valid,
 		// @todo Start: 1. Store the handles so we can later make
