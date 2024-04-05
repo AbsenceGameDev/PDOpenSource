@@ -35,7 +35,8 @@ class UPDMissionInterface : public UInterface
 };
 
 /**
- * 
+ * @brief Add to actor or object that should have the ability to grant/remove missions and also need to track gameplay tags.
+ * @note This means a playable character itself should in-fact have this applied, but it works on any actor so it is feasible to run this on an AI pawn as-well.  
  */
 class PDMISSIONCORE_API IPDMissionInterface : public IInterface
 {

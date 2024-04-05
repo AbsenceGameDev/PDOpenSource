@@ -41,7 +41,6 @@ bool UPDMissionSubsystem::FinishMission(int32 ActorID, const FPDMissionBase& Per
 			Tracker != nullptr, TrackerOwner != nullptr, DefaultData != nullptr);
 		return false;
 	}
-	
 
 	// can't set mission progress, does not have required tags too finish the mission 
 	if (DefaultData->ProgressRules.MissionConditionHandler.CallerHasRequiredTags(TrackerOwner) == false)
