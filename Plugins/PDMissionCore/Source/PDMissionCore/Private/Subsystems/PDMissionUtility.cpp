@@ -27,16 +27,6 @@
 
 #include <Curves/CurveFloat.h>
 
-#ifndef MGETTRACKER_EXITNONAUTH 
-#define MGETTRACKER_EXITNONAUTH(ID, BLOCK) \
-GetActorTracker(ID); \
-	if (MissionTracker == nullptr || MissionTracker->GetOwnerRole() != ROLE_Authority) \
-	{ \
-		BLOCK; \
-	}
-#endif
-/* USER INTERFACE */
-
 const FPDMissionMetadata& FPDMissionUtility::GetMetadataBase(const int32 mID) const
 {
 	FPDMissionRow* StatRow = GetDefaultBase(mID);
@@ -231,7 +221,11 @@ void FPDMissionUtility::ProcessTablesForFastLookup()
 
 void FPDMissionUtility::InitializeTracker(const int32 ActorID)
 {
-	UPDMissionTracker* MissionTracker = MGETTRACKER_EXITNONAUTH(ActorID, return);
+	UPDMissionTracker* MissionTracker = GetActorTracker(ActorID);
+	if (MissionTracker == nullptr || MissionTracker->GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	};
 
 	for (TTuple<int32, FDataTableRowHandle>& BaseMission : MissionLookup)
 	{

@@ -17,10 +17,10 @@ public class PDMissionEditor : ModuleRules
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
+				"PDMissionEditor/Classes",
 				// ... add other private include paths required here ...
 			}
-			);
-			
+		);
 		
 		PublicDependencyModuleNames.AddRange(
 			new string[]
@@ -35,6 +35,11 @@ public class PDMissionEditor : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
+				"ApplicationCore",
+				"BlueprintGraph",
+				"GraphEditor",
+				"GameplayTags",
+
 				"Projects",
 				"InputCore",
 				"EditorFramework",
