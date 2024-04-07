@@ -79,14 +79,14 @@ FPDMissionGraphEditor::~FPDMissionGraphEditor()
 }
 
 #define MGenericMapAction(Token) \
-	MapAction(FGenericCommands::Get().##Token, \
-		FExecuteAction::CreateRaw(this, &FPDMissionGraphEditor::##Token##Nodes), \
+	MapAction(FGenericCommands::Get(). Token, \
+		FExecuteAction::CreateRaw(this, &FPDMissionGraphEditor:: Token##Nodes), \
 		FCanExecuteAction::CreateRaw(this, &FPDMissionGraphEditor::Can##Token##Nodes) \
 		);
 
 #define MGEMapAction(Token) \
-	MapAction(FGraphEditorCommands::Get().##Token, \
-		FExecuteAction::CreateRaw(this, &FPDMissionGraphEditor::##Token), \
+	MapAction(FGraphEditorCommands::Get(). Token, \
+		FExecuteAction::CreateRaw(this, &FPDMissionGraphEditor:: Token), \
 		FCanExecuteAction::CreateRaw(this, &FPDMissionGraphEditor::Can##Token) \
 		);	
 
@@ -690,13 +690,13 @@ TSharedRef<SWidget> FPDMissionGraphEditor::SpawnProperties()
 
 TSharedRef<SWidget> FPDMissionGraphEditor::SpawnSearch()
 {
-	SearchResults = SNew(SSearchInMission, SharedThis(this));
+	// SearchResults = SNew(SSearchInMission, SharedThis(this));  // @todo SSearchInMission
 	return SearchResults.ToSharedRef();
 }
 
 TSharedRef<SWidget> FPDMissionGraphEditor::SpawnMissionTree()
 {
-	TreeEditor = SNew(SMissionTreeEditor, SharedThis(this));
+	// TreeEditor = SNew(SMissionTreeEditor, SharedThis(this));  // @todo SMissionTreeEditor
 	return TreeEditor.ToSharedRef();
 }
 
@@ -764,7 +764,7 @@ void FPDMissionGraphEditor::HandleNewNodeStructPicked(const UScriptStruct* Bases
 }
 
 #define MMapDebugCommand(Token) \
-GraphEditorCommands->MapAction( FGraphEditorCommands::Get().##Token, \
+GraphEditorCommands->MapAction( FGraphEditorCommands::Get(). Token, \
 	FExecuteAction::CreateSP(&DebugHandler, &FPDMissionDebuggerHandler::On##Token##), \
 	FCanExecuteAction::CreateSP(&DebugHandler, &FPDMissionDebuggerHandler::Can##Token## ), \
 	FIsActionChecked(), \
