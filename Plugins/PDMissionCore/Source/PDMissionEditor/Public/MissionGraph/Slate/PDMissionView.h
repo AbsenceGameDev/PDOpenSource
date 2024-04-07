@@ -20,29 +20,30 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
 */
+#pragma once
 
+#include "BlueprintUtilities.h"
+#include "Widgets/SCompoundWidget.h"
 
-#include "Net/MissionDatum.h"
-#include "Components/PDMissionTracker.h"
+class ITableRow;
+class STableViewBase;
+class UEdGraphNode;
+namespace ESelectInfo { enum Type : int; }
+template <typename ItemType> class STreeView;
 
-void FPDMissionNetDatum::PreReplicatedRemove(const FPDMissionNetDataCompound& InArraySerializer)
+class FPDMissionGraphEditor;
+
+/** Item that matched the search results */
+class FMissionTreeNode : public TSharedFromThis<FMissionTreeNode>
 {
-	check(InArraySerializer.OwnerTracker != nullptr);
-}
+public:
+};
 
-void FPDMissionNetDatum::PostReplicatedAdd(const FPDMissionNetDataCompound& InArraySerializer)
+/** */
+class SMissionTreeEditor : public SCompoundWidget
 {
-	check(InArraySerializer.OwnerTracker != nullptr);
-	InArraySerializer.OwnerTracker->OnDatumUpdated(this);
-}
-
-void FPDMissionNetDatum::PostReplicatedChange(const FPDMissionNetDataCompound& InArraySerializer)
-{
-	check(InArraySerializer.OwnerTracker != nullptr);
-	InArraySerializer.OwnerTracker->OnDatumUpdated(this);
-}
-
-bool FPDMissionNetDataCompound::NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParams)
-{
-	return FFastArraySerializer::FastArrayDeltaSerialize<FPDMissionNetDatum, FPDMissionNetDataCompound>(Items, DeltaParams, *this);
-}
+public:
+	SLATE_BEGIN_ARGS(SMissionTreeEditor){}
+	SLATE_END_ARGS()
+	
+};

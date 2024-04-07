@@ -130,7 +130,7 @@ protected:
 	TArray<UDataTable*> MissionTables {};
 	
 	/** @brief  Nested map of Mission events. TMap<ActorID, TMap<mID, Event Signature>> */
-	TMap<int32, FMissionTreeMap> BoundMissionEvents {};
+	TMap<int32, FPDMissionTreeMap> BoundMissionEvents {};
 	
 private:
 	FPDMissionMetadata DummyMetadata = {FText::GetEmpty(), FText::GetEmpty()};

@@ -1,14 +1,35 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿/*
+ * @copyright Permafrost Development (MIT license) 
+ * Authors: Ario Amin
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE. 
+*/
 
 
-#include "MissionGraph/MissionGraphNode.h"
+#include "MissionGraph/PDMissionGraphNode.h"
 #include "UObject/Class.h"
 #include "UObject/UnrealType.h"
 #include "Engine/Blueprint.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "AssetRegistry/AssetData.h"
 #include "EdGraph/EdGraphSchema.h"
-#include "MissionGraph/MissionGraph.h"
+#include "MissionGraph/PDMissionGraph.h"
 #include "DiffResults.h"
 #include "ScopedTransaction.h"
 #include "BlueprintNodeHelpers.h"
@@ -16,7 +37,7 @@
 
 #define LOCTEXT_NAMESPACE "MissionGraph"
 
-UMissionGraphNode::UMissionGraphNode(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
+UPDMissionGraphNode::UPDMissionGraphNode(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NodeInstance = nullptr;
 	CopySubNodeIndex = 0;
@@ -24,40 +45,41 @@ UMissionGraphNode::UMissionGraphNode(const FObjectInitializer& ObjectInitializer
 	bIsSubNode = false;
 }
 
-void UMissionGraphNode::InitializeInstance()
+void UPDMissionGraphNode::InitializeInstance()
 {
 	// empty in base class
 }
 
-void UMissionGraphNode::PostPlacedNewNode()
+void UPDMissionGraphNode::PostPlacedNewNode()
 {
 	// NodeInstance can be already spawned by paste operation, don't override it
 
-	UClass* NodeClass = ClassData.GetClass(true);
-	if (NodeClass && (NodeInstance == nullptr))
+	UStruct* NodeStruct = ClassData.GetStruct(true);
+	if (NodeStruct && (NodeInstance == nullptr))
 	{
 		UEdGraph* MyGraph = GetGraph();
 		UObject* GraphOwner = MyGraph ? MyGraph->GetOuter() : nullptr;
 		if (GraphOwner)
 		{
-			NodeInstance = NewObject<UObject>(GraphOwner, NodeClass);
+			// StructOnScopePropertyOwner = NewObject<UStruct>(GraphOwner, NodeStruct);
+			NodeInstance = NewObject<UStruct>(GetTransientPackage(), TEXT("StructOnScope"), RF_Transient);
 			NodeInstance->SetFlags(RF_Transactional);
 			InitializeInstance();
 		}
 	}
 }
 
-bool UMissionGraphNode::CanDuplicateNode() const
+bool UPDMissionGraphNode::CanDuplicateNode() const
 {
 	return bIsReadOnly ? false : Super::CanDuplicateNode();
 }
 
-bool UMissionGraphNode::CanUserDeleteNode() const
+bool UPDMissionGraphNode::CanUserDeleteNode() const
 {
 	return bIsReadOnly ? false : Super::CanUserDeleteNode();
 }
 
-void UMissionGraphNode::PrepareForCopying()
+void UPDMissionGraphNode::PrepareForCopying()
 {
 	if (NodeInstance)
 	{
@@ -67,7 +89,7 @@ void UMissionGraphNode::PrepareForCopying()
 }
 #if WITH_EDITOR
 
-void UMissionGraphNode::PostEditImport()
+void UPDMissionGraphNode::PostEditImport()
 {
 	ResetNodeOwner();
 
@@ -77,7 +99,7 @@ void UMissionGraphNode::PostEditImport()
 	}
 }
 
-void UMissionGraphNode::PostEditUndo()
+void UPDMissionGraphNode::PostEditUndo()
 {
 	UEdGraphNode::PostEditUndo();
 	ResetNodeOwner();
@@ -90,12 +112,12 @@ void UMissionGraphNode::PostEditUndo()
 
 #endif
 
-void UMissionGraphNode::PostCopyNode()
+void UPDMissionGraphNode::PostCopyNode()
 {
 	ResetNodeOwner();
 }
 
-void UMissionGraphNode::ResetNodeOwner()
+void UPDMissionGraphNode::ResetNodeOwner()
 {
 	if (NodeInstance)
 	{
@@ -112,21 +134,21 @@ void UMissionGraphNode::ResetNodeOwner()
 	}
 }
 
-FText UMissionGraphNode::GetDescription() const
+FText UPDMissionGraphNode::GetDescription() const
 {
-	FString StoredClassName = ClassData.GetClassName();
+	FString StoredClassName = ClassData.GetDataEntryName();
 	StoredClassName.RemoveFromEnd(TEXT("_C"));
 	
 	return FText::Format(LOCTEXT("NodeClassError", "Class {0} not found, make sure it's saved!"), FText::FromString(StoredClassName));
 }
 
-FText UMissionGraphNode::GetTooltipText() const
+FText UPDMissionGraphNode::GetTooltipText() const
 {
 	FText TooltipDesc;
 
 	if (!NodeInstance)
 	{
-		FString StoredClassName = ClassData.GetClassName();
+		FString StoredClassName = ClassData.GetDataEntryName();
 		StoredClassName.RemoveFromEnd(TEXT("_C"));
 
 		TooltipDesc = FText::Format(LOCTEXT("NodeClassError", "Class {0} not found, make sure it's saved!"), FText::FromString(StoredClassName));
@@ -159,7 +181,7 @@ FText UMissionGraphNode::GetTooltipText() const
 	return TooltipDesc;
 }
 
-UEdGraphPin* UMissionGraphNode::GetInputPin(int32 InputIndex) const
+UEdGraphPin* UPDMissionGraphNode::GetInputPin(int32 InputIndex) const
 {
 	check(InputIndex >= 0);
 
@@ -181,7 +203,7 @@ UEdGraphPin* UMissionGraphNode::GetInputPin(int32 InputIndex) const
 	return nullptr;
 }
 
-UEdGraphPin* UMissionGraphNode::GetOutputPin(int32 InputIndex) const
+UEdGraphPin* UPDMissionGraphNode::GetOutputPin(int32 InputIndex) const
 {
 	check(InputIndex >= 0);
 
@@ -203,7 +225,7 @@ UEdGraphPin* UMissionGraphNode::GetOutputPin(int32 InputIndex) const
 	return nullptr;
 }
 
-void UMissionGraphNode::AutowireNewNode(UEdGraphPin* FromPin)
+void UPDMissionGraphNode::AutowireNewNode(UEdGraphPin* FromPin)
 {
 	Super::AutowireNewNode(FromPin);
 
@@ -222,24 +244,24 @@ void UMissionGraphNode::AutowireNewNode(UEdGraphPin* FromPin)
 	}
 }
 
-UMissionGraph* UMissionGraphNode::GetMissionGraph()
+UPDMissionGraph* UPDMissionGraphNode::GetMissionGraph()
 {
-	return CastChecked<UMissionGraph>(GetGraph());
+	return CastChecked<UPDMissionGraph>(GetGraph());
 }
 
-bool UMissionGraphNode::IsSubNode() const
+bool UPDMissionGraphNode::IsSubNode() const
 {
 	return bIsSubNode || (ParentNode != nullptr);
 }
 
-void UMissionGraphNode::NodeConnectionListChanged()
+void UPDMissionGraphNode::NodeConnectionListChanged()
 {
 	Super::NodeConnectionListChanged();
 
-	GetMissionGraph()->UpdateAsset();
+	GetMissionGraph()->UpdateData();
 }
 
-bool UMissionGraphNode::CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const
+bool UPDMissionGraphNode::CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const
 {
 	// override in child class
 	return false;
@@ -278,16 +300,16 @@ FString DescribeProperty(const FProperty* Prop, const uint8* PropertyAddr)
 	return FString::Printf(TEXT("%s: %s"), *FName::NameToDisplayString(Prop->GetName(), bIsBool), *ExportedStringValue);
 }
 
-FString UMissionGraphNode::GetPropertyNameAndValueForDiff(const FProperty* Prop, const uint8* PropertyAddr) const
+FString UPDMissionGraphNode::GetPropertyNameAndValueForDiff(const FProperty* Prop, const uint8* PropertyAddr) const
 {
 	return DescribeProperty(Prop, PropertyAddr);
 }
 
-void UMissionGraphNode::FindDiffs(UEdGraphNode* OtherNode, FDiffResults& Results)
+void UPDMissionGraphNode::FindDiffs(UEdGraphNode* OtherNode, FDiffResults& Results)
 {
 	Super::FindDiffs(OtherNode, Results);
 
-	if (UMissionGraphNode* OtherGraphNode = Cast<UMissionGraphNode>(OtherNode))
+	if (UPDMissionGraphNode* OtherGraphNode = Cast<UPDMissionGraphNode>(OtherNode))
 	{
 		if (NodeInstance && OtherGraphNode->NodeInstance)
 		{
@@ -303,7 +325,7 @@ void UMissionGraphNode::FindDiffs(UEdGraphNode* OtherNode, FDiffResults& Results
 	}
 }
 
-void UMissionGraphNode::AddSubNode(UMissionGraphNode* SubNode, class UEdGraph* ParentGraph)
+void UPDMissionGraphNode::AddSubNode(UPDMissionGraphNode* SubNode, class UEdGraph* ParentGraph)
 {
 	const FScopedTransaction Transaction(LOCTEXT("AddNode", "Add Node"));
 	ParentGraph->Modify();
@@ -327,15 +349,15 @@ void UMissionGraphNode::AddSubNode(UMissionGraphNode* SubNode, class UEdGraph* P
 	OnSubNodeAdded(SubNode);
 
 	ParentGraph->NotifyGraphChanged();
-	GetMissionGraph()->UpdateAsset();
+	GetMissionGraph()->UpdateData();
 }
 
-void UMissionGraphNode::OnSubNodeAdded(UMissionGraphNode* SubNode)
+void UPDMissionGraphNode::OnSubNodeAdded(UPDMissionGraphNode* SubNode)
 {
 	// empty in base class
 }
 
-void UMissionGraphNode::RemoveSubNode(UMissionGraphNode* SubNode)
+void UPDMissionGraphNode::RemoveSubNode(UPDMissionGraphNode* SubNode)
 {
 	Modify();
 	SubNodes.RemoveSingle(SubNode);
@@ -343,23 +365,23 @@ void UMissionGraphNode::RemoveSubNode(UMissionGraphNode* SubNode)
 	OnSubNodeRemoved(SubNode);
 }
 
-void UMissionGraphNode::RemoveAllSubNodes()
+void UPDMissionGraphNode::RemoveAllSubNodes()
 {
 	SubNodes.Reset();
 }
 
-void UMissionGraphNode::OnSubNodeRemoved(UMissionGraphNode* SubNode)
+void UPDMissionGraphNode::OnSubNodeRemoved(UPDMissionGraphNode* SubNode)
 {
 	// empty in base class
 }
 
-int32 UMissionGraphNode::FindSubNodeDropIndex(UMissionGraphNode* SubNode) const
+int32 UPDMissionGraphNode::FindSubNodeDropIndex(UPDMissionGraphNode* SubNode) const
 {
 	const int32 InsertIndex = SubNodes.IndexOfByKey(SubNode);
 	return InsertIndex;
 }
 
-void UMissionGraphNode::InsertSubNodeAt(UMissionGraphNode* SubNode, int32 DropIndex)
+void UPDMissionGraphNode::InsertSubNodeAt(UPDMissionGraphNode* SubNode, int32 DropIndex)
 {
 	if (DropIndex > -1)
 	{
@@ -371,7 +393,7 @@ void UMissionGraphNode::InsertSubNodeAt(UMissionGraphNode* SubNode, int32 DropIn
 	}
 }
 
-void UMissionGraphNode::DestroyNode()
+void UPDMissionGraphNode::DestroyNode()
 {
 	if (ParentNode)
 	{
@@ -381,64 +403,64 @@ void UMissionGraphNode::DestroyNode()
 	UEdGraphNode::DestroyNode();
 }
 
-bool UMissionGraphNode::UsesBlueprint() const
+bool UPDMissionGraphNode::UsesBlueprint() const
 {
 	return NodeInstance && NodeInstance->GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
 }
 
-bool UMissionGraphNode::RefreshNodeClass()
+bool UPDMissionGraphNode::RefreshNodeClass()
 {
 	bool bUpdated = false;
 	if (NodeInstance == nullptr)
 	{
-		if (FMissionNodeClassHelper::IsClassKnown(ClassData))
+		if (FPDMissionDataNodeHelper::IsClassKnown(ClassData))
 		{
 			PostPlacedNewNode();
 			bUpdated = (NodeInstance != nullptr);
 		}
 		else
 		{
-			FMissionNodeClassHelper::AddUnknownClass(ClassData);
+			FPDMissionDataNodeHelper::AddUnknownClass(ClassData);
 		}
 	}
 
 	return bUpdated;
 }
 
-void UMissionGraphNode::UpdateNodeClassData()
+void UPDMissionGraphNode::UpdateNodeClassData()
 {
 	if (NodeInstance)
 	{
-		UpdateNodeClassDataFrom(NodeInstance->GetClass(), ClassData);
+		UpdateNodeDataFrom(NodeInstance->GetClass(), ClassData);
 		UpdateErrorMessage();
 	}
 }
 
-void UMissionGraphNode::UpdateErrorMessage()
+void UPDMissionGraphNode::UpdateErrorMessage()
 {
 	ErrorMessage = ClassData.GetDeprecatedMessage();
 }
 
-void UMissionGraphNode::UpdateNodeClassDataFrom(UClass* InstanceClass, FMissionNodeClassData& UpdatedData)
+void UPDMissionGraphNode::UpdateNodeDataFrom(UClass* InstanceClass, FPDMissionNodeData& UpdatedData)
 {
 	if (InstanceClass)
 	{
 		if (UBlueprint* BPOwner = Cast<UBlueprint>(InstanceClass->ClassGeneratedBy))
 		{
-			UpdatedData = FMissionNodeClassData(BPOwner->GetName(), BPOwner->GetOutermost()->GetName(), InstanceClass->GetName(), InstanceClass);
+			UpdatedData = FPDMissionNodeData(BPOwner->GetName(), BPOwner->GetOutermost()->GetName(), InstanceClass->GetName(), InstanceClass);
 		}
 		else if (UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(InstanceClass))
 		{
-			UpdatedData = FMissionNodeClassData(BPGC->GetClassPathName(), BPGC);
+			UpdatedData = FPDMissionNodeData(BPGC->GetClassPathName(), BPGC);
 		}
 		else
 		{
-			UpdatedData = FMissionNodeClassData(InstanceClass, FMissionNodeClassHelper::GetDeprecationMessage(InstanceClass));
+			UpdatedData = FPDMissionNodeData(InstanceClass, FPDMissionDataNodeHelper::GetDeprecationMessage(InstanceClass));
 		}
 	}
 }
 
-bool UMissionGraphNode::HasErrors() const
+bool UPDMissionGraphNode::HasErrors() const
 {
 	return ErrorMessage.Len() > 0 || NodeInstance == nullptr;
 }

@@ -22,27 +22,27 @@
 */
 #pragma once
 
+#include "PDMissionGraphTypes.h"
+
 #include "Misc/NotifyHook.h"
 #include "WorkflowOrientedApp/WorkflowCentricApplication.h"
 #include "CoreMinimal.h"
 #include "EditorUndoClient.h"
 #include "GraphEditor.h"
-#include "MissionGraphTypes.h"
 
 class SGraphEditor;
 struct FGraphAppearanceInfo;
 
-class FMissionDebugger;
-class FMissionEditorToolbar;
+class FPDMissionDebugger;
+class FPDMissionEditorToolbar;
 class FDocumentTabFactory;
 class FDocumentTracker;
 class IDetailsView;
-class SFindInConversation;
-class UConversation;
+class SSearchInMission;
 class UEdGraph;
-struct Rect;
-class SMissionTreeEditor;
 class UDataTable;
+class SMissionTreeEditor;
+struct Rect;
 
 class UEdGraphNode;
 
@@ -51,11 +51,11 @@ class UEdGraphNode;
 #pragma once
 
 
-class PDMISSIONEDITOR_API FMissionGraphEditor : public FEditorUndoClient, public FWorkflowCentricApplication, public FNotifyHook
+class PDMISSIONEDITOR_API FPDMissionGraphEditor : public FEditorUndoClient, public FWorkflowCentricApplication, public FNotifyHook
 {
 public:
-	FMissionGraphEditor();
-	virtual ~FMissionGraphEditor();
+	FPDMissionGraphEditor();
+	virtual ~FPDMissionGraphEditor();
 
 	FGraphPanelSelectionSet GetSelectedNodes() const;
 	virtual void OnSelectedNodesChanged(const TSet<class UObject*>& NewSelection);
@@ -74,12 +74,14 @@ public:
 	void CutNodes();
 	void CopyNodes() const;
 	void PasteNodes();
-	void PasteNodesHere(const FVector2D& Location);
+	void PasteNodesAtLocation(const FVector2D& Location);
 	void DuplicateNodes();
 	void CreateComment() const;
 	
 	bool CanSelectAllNodes() const;
 	bool CanDeleteNodes() const;
+	void SearchMissionTree() const;
+	bool CanSearchMissionTree() const;
 	bool CanCutNodes() const;
 	bool CanCopyNodes() const;
 	bool CanPasteNodes() const;
@@ -96,7 +98,7 @@ protected:
 protected:
 
 	/** Currently focused graph */
-	TWeakPtr<SGraphEditor> UpdateGraphEdPtr;
+	TWeakPtr<SGraphEditor> FocusGraphEditorPtr;
 
 	/** The command list for this editor */
 	TSharedPtr<FUICommandList> GraphEditorCommands;
@@ -116,9 +118,9 @@ public:
 
 	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager) override;
 
-	void InitMissionEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UObject* InObject );
+	void InitMissionEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, const FPDMissionGraph_NodeData& InData);
 
-	static TSharedRef<FMissionGraphEditor> CreateMissionEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UObject* Object);
+	static TSharedRef<FPDMissionGraphEditor> CreateMissionEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, const FPDMissionGraph_NodeData& InData);
 
 	//~ Begin IToolkit Interface
 	virtual FName GetToolkitFName() const override;
@@ -129,7 +131,7 @@ public:
 	virtual FText GetToolkitToolTipText() const override;
 	//~ End IToolkit Interface
 
-	virtual void FocusWindow(UObject* ObjectToFocusOn = NULL);
+	virtual void FocusWindow(UObject* ObjectToFocusOn = nullptr);
 
 	//~ Begin FNotifyHook Interface
 	virtual void NotifyPostChange(const FPropertyChangedEvent& PropertyChangedEvent, FProperty* PropertyThatChanged) override;
@@ -144,11 +146,10 @@ public:
 
 	FGraphAppearanceInfo GetGraphAppearance() const;
 	bool InEditingMode(bool bGraphIsEditable) const;
+	TWeakPtr<SGraphEditor> GetFocusedGraphPtr() const;
 
 	EVisibility GetDebuggerDetailsVisibility() const;
-	EVisibility GetInjectedNodeVisibility() const;
 
-	TWeakPtr<SGraphEditor> GetFocusedGraphPtr() const;
 
 	/** 
 	 * Get the localized text to display for the specified mode 
@@ -158,10 +159,10 @@ public:
 	static FText GetLocalizedMode(FName InMode);
 
 	/** Access the toolbar builder for this editor */
-	TSharedPtr<class FMissionEditorToolbar> GetToolbarBuilder() { return ToolbarBuilder; }
+	TSharedPtr<class FPDMissionEditorToolbar> GetToolbarBuilder() { return ToolbarBuilder; }
 
 	/** Get the mission asset we are editing (if any) */
-	UDataTable* GetMissionData() const;
+	FPDMissionGraph_NodeData& GetMissionData() const;
 
 	/** Spawns the tab with the update graph inside */
 	TSharedRef<SWidget> SpawnProperties();
@@ -182,17 +183,19 @@ public:
 	void SaveEditedObjectState();
 
 	/** Are we allowed to create new node classes right now? */
-	bool CanCreateNewNodeClasses() const;
+	bool CanCreateNewMissionNodes() const;
 
 	/** Create the menu used to make a new task node */
-	TSharedRef<SWidget> HandleCreateNewClassMenu(UClass* BaseClass) const;
+	TSharedRef<SWidget> HandleCreateNewStructMenu(UScriptStruct* BaseStruct) const;
 
 	/** Handler for when a node class is picked */
-	void HandleNewNodeClassPicked(UClass* InClass) const;
+	void HandleNewNodeStructPicked(const UScriptStruct* InStruct) const;
 
 private:
 	/** Create widget for graph editing */
 	TSharedRef<class SGraphEditor> CreateGraphEditorWidget(UEdGraph* InGraph);
+	bool IsPropertyEditable() const;
+	void OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
 
 	/** Creates all internal widgets for the tabs to point at */
 	void CreateInternalWidgets();
@@ -201,27 +204,26 @@ private:
 	void ExtendMenu();
 
 	/** Setup common commands */
-	void BindCommonCommands();
+	void BindCommands();
 
 	TSharedPtr<FDocumentTracker> DocumentManager;
 	TWeakPtr<FDocumentTabFactory> GraphEditorTabFactoryPtr;
 
 	/* The mission being edited */
-	UDataTable* MissionTable;
+	FPDMissionGraph_NodeData MissionData;
 
 	/** Property View */
 	TSharedPtr<class IDetailsView> DetailsView;
 
-	TSharedPtr<FPDMissionDebuggerHandler> Debugger;
+	// TSharedPtr<FPDMissionDebuggerHandler> Debugger; @todo
 
 	/** Find results log as well as the search filter */
-	TSharedPtr<SFindInConversation> FindResults;
-
+	TSharedPtr<SSearchInMission> SearchResults;
 	TSharedPtr<SMissionTreeEditor> TreeEditor;
 
 	uint32 bForceDisablePropertyEdit : 1;
 
-	TSharedPtr<FMissionEditorToolbar> ToolbarBuilder;
+	TSharedPtr<FPDMissionEditorToolbar> ToolbarBuilder;
 
 public:
 	/** Modes in mode switcher */

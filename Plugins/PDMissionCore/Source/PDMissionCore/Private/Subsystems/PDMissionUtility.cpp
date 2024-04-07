@@ -155,7 +155,7 @@ void FPDMissionUtility::RegisterUser(UPDMissionTracker* Tracker)
 	MissionTrackerMap.Add(ActorID, Tracker);
 	if (BoundMissionEvents.Find(ActorID) == nullptr)
 	{
-		BoundMissionEvents.Add(ActorID, {}); // {Event-List} = const FMissionTreeMap,
+		BoundMissionEvents.Add(ActorID, {}); // {Event-List} = const FPDMissionTreeMap,
 	}
 
 	InitializeTracker(ActorID); // @todo Load from storage instead of a clean Init, if user data is available 
@@ -241,14 +241,14 @@ void FPDMissionUtility::BindMissionEvent(int32 ActorID, int32 mID, const FPDUpda
 {
 	if (mID == INDEX_NONE) { return; }
 
-	FMissionTreeMap* UserEventMapPtr = BoundMissionEvents.Find(ActorID);
+	FPDMissionTreeMap* UserEventMapPtr = BoundMissionEvents.Find(ActorID);
 	if (UserEventMapPtr) { UserEventMapPtr->Emplace(mID, MissionEventDelegate); }
 }
 
 bool FPDMissionUtility::ExecuteBoundMissionEvent(const int32 ActorID, const int32 mID, const EPDMissionState NewState)
 {
 	// Do we have and event map for this user/actor?
-	FMissionTreeMap* UserEventMapPtr = BoundMissionEvents.Find(ActorID);
+	FPDMissionTreeMap* UserEventMapPtr = BoundMissionEvents.Find(ActorID);
 	if (UserEventMapPtr == nullptr) { return false; }
 
 	// Find if there is any delegate bound to this specific SID, fire if true

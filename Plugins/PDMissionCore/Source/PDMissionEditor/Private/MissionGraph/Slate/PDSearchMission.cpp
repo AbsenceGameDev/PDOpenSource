@@ -1,5 +1,5 @@
 ﻿/*
- * @copyright Permafrost Development (MIT license) 
+* @copyright Permafrost Development (MIT license) 
  * Authors: Ario Amin
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18,31 +18,5 @@
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * SOFTWARE. 
 */
-
-
-#include "Net/MissionDatum.h"
-#include "Components/PDMissionTracker.h"
-
-void FPDMissionNetDatum::PreReplicatedRemove(const FPDMissionNetDataCompound& InArraySerializer)
-{
-	check(InArraySerializer.OwnerTracker != nullptr);
-}
-
-void FPDMissionNetDatum::PostReplicatedAdd(const FPDMissionNetDataCompound& InArraySerializer)
-{
-	check(InArraySerializer.OwnerTracker != nullptr);
-	InArraySerializer.OwnerTracker->OnDatumUpdated(this);
-}
-
-void FPDMissionNetDatum::PostReplicatedChange(const FPDMissionNetDataCompound& InArraySerializer)
-{
-	check(InArraySerializer.OwnerTracker != nullptr);
-	InArraySerializer.OwnerTracker->OnDatumUpdated(this);
-}
-
-bool FPDMissionNetDataCompound::NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParams)
-{
-	return FFastArraySerializer::FastArrayDeltaSerialize<FPDMissionNetDatum, FPDMissionNetDataCompound>(Items, DeltaParams, *this);
-}

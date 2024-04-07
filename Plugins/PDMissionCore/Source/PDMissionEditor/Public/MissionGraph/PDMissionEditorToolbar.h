@@ -18,31 +18,32 @@
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * SOFTWARE. 
 */
 
+#pragma once
 
-#include "Net/MissionDatum.h"
-#include "Components/PDMissionTracker.h"
+#include "Templates/SharedPointer.h"
 
-void FPDMissionNetDatum::PreReplicatedRemove(const FPDMissionNetDataCompound& InArraySerializer)
+class FPDMissionGraphEditor;
+class FPDMissionTreeEditor;
+class FExtender;
+class FToolBarBuilder;
+
+class FPDMissionEditorToolbar : public TSharedFromThis<FPDMissionEditorToolbar>
 {
-	check(InArraySerializer.OwnerTracker != nullptr);
-}
+public:
+	FPDMissionEditorToolbar(TSharedPtr<FPDMissionGraphEditor> InMissionEditor)
+		: MissionEditor(InMissionEditor) {}
 
-void FPDMissionNetDatum::PostReplicatedAdd(const FPDMissionNetDataCompound& InArraySerializer)
-{
-	check(InArraySerializer.OwnerTracker != nullptr);
-	InArraySerializer.OwnerTracker->OnDatumUpdated(this);
-}
+	// void AddDebuggerToolbar(TSharedPtr<FExtender> Extender); @todo : debugger
+	void AddMissionEditorToolbar(TSharedPtr<FExtender> Extender);
 
-void FPDMissionNetDatum::PostReplicatedChange(const FPDMissionNetDataCompound& InArraySerializer)
-{
-	check(InArraySerializer.OwnerTracker != nullptr);
-	InArraySerializer.OwnerTracker->OnDatumUpdated(this);
-}
+private:
+	// void FillDebuggerToolbar(FToolBarBuilder& ToolbarBuilder); @todo : debugger
+	void FillMissionEditorToolbar(FToolBarBuilder& ToolbarBuilder);
 
-bool FPDMissionNetDataCompound::NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParams)
-{
-	return FFastArraySerializer::FastArrayDeltaSerialize<FPDMissionNetDatum, FPDMissionNetDataCompound>(Items, DeltaParams, *this);
-}
+protected:
+	/** Pointer back to the blueprint editor tool that owns us */
+	TWeakPtr<FPDMissionGraphEditor> MissionEditor;
+};

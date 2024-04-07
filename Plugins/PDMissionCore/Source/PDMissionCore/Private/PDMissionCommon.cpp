@@ -85,11 +85,11 @@ FPDDelayMissionFunctor::FPDDelayMissionFunctor(UPDMissionTracker* Tracker, const
 
 //
 // Progress status handler
-void FPDMissionStatusHandler::AccumulateData(const FGameplayTag& InTag, FPDFMissionModData& DataCompound) const
+void FPDMissionStatusHandler::AccumulateData(const FGameplayTag& InTag, FPDFPDMissionModData& DataCompound) const
 {
 }
 
-void FPDMissionRules::IterateStatusHandlers(const FGameplayTag& Tag, FPDFMissionModData& OutStatVariables)
+void FPDMissionRules::IterateStatusHandlers(const FGameplayTag& Tag, FPDFPDMissionModData& OutStatVariables)
 {
 }
 

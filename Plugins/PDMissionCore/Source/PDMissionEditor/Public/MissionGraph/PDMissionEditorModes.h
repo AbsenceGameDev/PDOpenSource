@@ -18,31 +18,32 @@
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * SOFTWARE. 
 */
 
+#pragma once
 
-#include "Net/MissionDatum.h"
-#include "Components/PDMissionTracker.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
+#include "WorkflowOrientedApp/ApplicationMode.h"
 
-void FPDMissionNetDatum::PreReplicatedRemove(const FPDMissionNetDataCompound& InArraySerializer)
+class FPDMissionGraphEditor;
+
+//////////////////////////////////////////////////////////////////////
+//
+
+/** Application mode for main mission editing mode */
+class FMissionEditorApplicationMode_GraphView : public FApplicationMode
 {
-	check(InArraySerializer.OwnerTracker != nullptr);
-}
+public:
+	FMissionEditorApplicationMode_GraphView(TSharedPtr<FPDMissionGraphEditor> InMissionEditor);
 
-void FPDMissionNetDatum::PostReplicatedAdd(const FPDMissionNetDataCompound& InArraySerializer)
-{
-	check(InArraySerializer.OwnerTracker != nullptr);
-	InArraySerializer.OwnerTracker->OnDatumUpdated(this);
-}
+	virtual void RegisterTabFactories(TSharedPtr<FTabManager> InTabManager) override;
+	virtual void PreDeactivateMode() override;
+	virtual void PostActivateMode() override;
 
-void FPDMissionNetDatum::PostReplicatedChange(const FPDMissionNetDataCompound& InArraySerializer)
-{
-	check(InArraySerializer.OwnerTracker != nullptr);
-	InArraySerializer.OwnerTracker->OnDatumUpdated(this);
-}
+protected:
+	TWeakPtr<FPDMissionGraphEditor> MissionEditor;
 
-bool FPDMissionNetDataCompound::NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParams)
-{
-	return FFastArraySerializer::FastArrayDeltaSerialize<FPDMissionNetDatum, FPDMissionNetDataCompound>(Items, DeltaParams, *this);
-}
+	// Set of spawnable tabs in behavior tree editing mode
+	FWorkflowAllowedTabSet MissionEditorTabFactories;
+};

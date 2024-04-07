@@ -1,6 +1,28 @@
-﻿// Copyright Epic Games, Inc. All Rights Reserved.
+﻿/*
+ * @copyright Permafrost Development (MIT license) 
+ * Authors: Ario Amin
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE. 
+*/
 
-#include "MissionGraphTypes.h"
+#include "PDMissionGraphTypes.h"
+
 #include "UObject/Object.h"
 #include "UObject/Class.h"
 #include "Misc/FeedbackContext.h"
@@ -19,43 +41,49 @@
 
 #define LOCTEXT_NAMESPACE "MissionGraph"
 
-FMissionNodeClassData::FMissionNodeClassData(UClass* InClass, const FString& InDeprecatedMessage) :
+
+// Tab identifiers
+const FName FPDMissionEditorTabs::GraphDetailsID(TEXT("MissionEditor_Properties"));
+const FName FPDMissionEditorTabs::SearchID(TEXT("MissionEditor_Search"));
+const FName FPDMissionEditorTabs::TreeEditorID(TEXT("MissionEditor_Tree"));
+
+// Document tab identifiers
+const FName FPDMissionEditorTabs::GraphEditorID(TEXT("Document"));
+
+
+FPDMissionNodeData::FPDMissionNodeData(UStruct* InStruct, const FString& InDeprecatedMessage) :
 	bIsHidden(0),
 	bHideParent(0),
-	Class(InClass),
+	Struct(InStruct),
 	DeprecatedMessage(InDeprecatedMessage)
 {
 	Category = GetCategory();
-
-	if (InClass)
-	{
-		ClassName = InClass->GetName();
-	}
+	if (InStruct) { ClassName = InStruct->GetName(); }
 }
 
-FMissionNodeClassData::FMissionNodeClassData(const FTopLevelAssetPath& InGeneratedClassPath, UClass* InClass) :
+FPDMissionNodeData::FPDMissionNodeData(const FTopLevelAssetPath& InGeneratedClassPath, UStruct* InStruct) :
 	bIsHidden(0),
 	bHideParent(0),
-	Class(InClass),
+	Struct(InStruct),
 	AssetName(InGeneratedClassPath.GetAssetName().ToString()),
-	GeneratedClassPackage(InGeneratedClassPath.GetPackageName().ToString()),
+	GeneratedPackage(InGeneratedClassPath.GetPackageName().ToString()),
 	ClassName(InGeneratedClassPath.GetAssetName().ToString())
 {
 	Category = GetCategory();
 }
 
-FMissionNodeClassData::FMissionNodeClassData(const FString& InAssetName, const FString& InGeneratedClassPackage, const FString& InClassName, UClass* InClass) :
+FPDMissionNodeData::FPDMissionNodeData(const FString& InAssetName, const FString& InGeneratedClassPackage, const FString& InClassName, UStruct* InStruct) :
 	bIsHidden(0),
 	bHideParent(0),
-	Class(InClass),
+	Struct(InStruct),
 	AssetName(InAssetName),
-	GeneratedClassPackage(InGeneratedClassPackage),
+	GeneratedPackage(InGeneratedClassPackage),
 	ClassName(InClassName)
 {
 	Category = GetCategory();
 }
 
-FString FMissionNodeClassData::ToString() const
+FString FPDMissionNodeData::ToString() const
 {
 	FString ShortName = GetDisplayName();
 	if (!ShortName.IsEmpty())
@@ -63,15 +91,15 @@ FString FMissionNodeClassData::ToString() const
 		return ShortName;
 	}
 
-	UClass* MyClass = Class.Get();
+	UStruct* MyClass = Struct.Get();
 	if (MyClass)
 	{
 		FString ClassDesc = MyClass->GetName();
 
-		if (MyClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
-		{
-			return ClassDesc.LeftChop(2);
-		}
+		// if (MyClass->HasAnyFlags(EObjectFlags:: CLASS_CompiledFromBlueprint))
+		// {
+		// 	return ClassDesc.LeftChop(2);
+		// }
 
 		const int32 ShortNameIdx = ClassDesc.Find(TEXT("_"), ESearchCase::CaseSensitive);
 		if (ShortNameIdx != INDEX_NONE)
@@ -85,47 +113,43 @@ FString FMissionNodeClassData::ToString() const
 	return AssetName;
 }
 
-FString FMissionNodeClassData::GetClassName() const
+FString FPDMissionNodeData::GetDataEntryName() const
 {
-	return Class.IsValid() ? Class->GetName() : ClassName;
+	return Struct.IsValid() ? Struct->GetName() : ClassName;
 }
 
-FString FMissionNodeClassData::GetDisplayName() const
+FString FPDMissionNodeData::GetDisplayName() const
 {
-	return Class.IsValid() ? Class->GetMetaData(TEXT("DisplayName")) : FString();
+	return Struct.IsValid() ? Struct->GetMetaData(TEXT("DisplayName")) : FString();
 }
 
-FText FMissionNodeClassData::GetTooltip() const
+FText FPDMissionNodeData::GetTooltip() const
 {
-	return Class.IsValid() ? Class->GetToolTipText() : FText::GetEmpty();
+	return Struct.IsValid() ? Struct->GetToolTipText() : FText::GetEmpty();
 }
 
-FText FMissionNodeClassData::GetCategory() const
+FText FPDMissionNodeData::GetCategory() const
 {
-	return Class.IsValid() ? FObjectEditorUtils::GetCategoryText(Class.Get()) : Category;
+	return Struct.IsValid() ? FObjectEditorUtils::GetCategoryText(Struct.Get()) : Category;
 }
 
-bool FMissionNodeClassData::IsAbstract() const
-{
-	return Class.IsValid() ? Class.Get()->HasAnyClassFlags(CLASS_Abstract) : false;
-}
 
-UClass* FMissionNodeClassData::GetClass(bool bSilent)
+UStruct* FPDMissionNodeData::GetStruct(bool bSilent)
 {
-	UClass* RetClass = Class.Get();
-	if (RetClass == NULL && GeneratedClassPackage.Len())
+	UStruct* RetStruct = Struct.Get();
+	if (RetStruct == NULL && GeneratedPackage.Len())
 	{
 		GWarn->BeginSlowTask(LOCTEXT("LoadPackage", "Loading Package..."), true);
 
-		UPackage* Package = LoadPackage(NULL, *GeneratedClassPackage, LOAD_NoRedirects);
+		UPackage* Package = LoadPackage(NULL, *GeneratedPackage, LOAD_NoRedirects);
 		if (Package)
 		{
 			Package->FullyLoad();
 
-			RetClass = FindObject<UClass>(Package, *ClassName);
+			RetStruct = FindObject<UClass>(Package, *ClassName);
 
 			GWarn->EndSlowTask();
-			Class = RetClass;
+			Struct = RetStruct;
 		}
 		else
 		{
@@ -135,41 +159,41 @@ UClass* FMissionNodeClassData::GetClass(bool bSilent)
 			{
 				FMessageLog EditorErrors("EditorErrors");
 				EditorErrors.Error(LOCTEXT("PackageLoadFail", "Package Load Failed"));
-				EditorErrors.Info(FText::FromString(GeneratedClassPackage));
+				EditorErrors.Info(FText::FromString(GeneratedPackage));
 				EditorErrors.Notify(LOCTEXT("PackageLoadFail", "Package Load Failed"));
 			}
 		}
 	}
 
-	return RetClass;
+	return RetStruct;
 }
 
 //////////////////////////////////////////////////////////////////////////
-TArray<FName> FMissionNodeClassHelper::UnknownPackages;
-TMap<UClass*, int32> FMissionNodeClassHelper::BlueprintClassCount;
-FMissionNodeClassHelper::FOnPackageListUpdated FMissionNodeClassHelper::OnPackageListUpdated;
+TArray<FName> FPDMissionDataNodeHelper::UnknownPackages;
+TMap<UClass*, int32> FPDMissionDataNodeHelper::BlueprintClassCount;
+FPDMissionDataNodeHelper::FOnPackageListUpdated FPDMissionDataNodeHelper::OnPackageListUpdated;
 
-FMissionNodeClassHelper::FMissionNodeClassHelper(UClass* InRootClass)
+FPDMissionDataNodeHelper::FPDMissionDataNodeHelper(UClass* InRootClass)
 {
 	RootNodeClass = InRootClass;
 
 	// Register with the Asset Registry to be informed when it is done loading up files.
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	AssetRegistryModule.Get().OnFilesLoaded().AddRaw(this, &FMissionNodeClassHelper::InvalidateCache);
-	AssetRegistryModule.Get().OnAssetAdded().AddRaw(this, &FMissionNodeClassHelper::OnAssetAdded);
-	AssetRegistryModule.Get().OnAssetRemoved().AddRaw(this, &FMissionNodeClassHelper::OnAssetRemoved);
+	AssetRegistryModule.Get().OnFilesLoaded().AddRaw(this, &FPDMissionDataNodeHelper::InvalidateCache);
+	AssetRegistryModule.Get().OnAssetAdded().AddRaw(this, &FPDMissionDataNodeHelper::OnAssetAdded);
+	AssetRegistryModule.Get().OnAssetRemoved().AddRaw(this, &FPDMissionDataNodeHelper::OnAssetRemoved);
 
 	// Register to have Populate called when doing a Reload.
-	FCoreUObjectDelegates::ReloadCompleteDelegate.AddRaw(this, &FMissionNodeClassHelper::OnReloadComplete);
+	FCoreUObjectDelegates::ReloadCompleteDelegate.AddRaw(this, &FPDMissionDataNodeHelper::OnReloadComplete);
 
 	// Register to have Populate called when a Blueprint is compiled.
-	GEditor->OnBlueprintCompiled().AddRaw(this, &FMissionNodeClassHelper::InvalidateCache);
-	GEditor->OnClassPackageLoadedOrUnloaded().AddRaw(this, &FMissionNodeClassHelper::InvalidateCache);
+	GEditor->OnBlueprintCompiled().AddRaw(this, &FPDMissionDataNodeHelper::InvalidateCache);
+	GEditor->OnClassPackageLoadedOrUnloaded().AddRaw(this, &FPDMissionDataNodeHelper::InvalidateCache);
 
 	UpdateAvailableBlueprintClasses();
 }
 
-FMissionNodeClassHelper::~FMissionNodeClassHelper()
+FPDMissionDataNodeHelper::~FPDMissionDataNodeHelper()
 {
 	// Unregister with the Asset Registry to be informed when it is done loading up files.
 	if (FModuleManager::Get().IsModuleLoaded(TEXT("AssetRegistry")))
@@ -195,11 +219,11 @@ FMissionNodeClassHelper::~FMissionNodeClassHelper()
 	}
 }
 
-void FMissionNodeClassNode::AddUniqueSubNode(TSharedPtr<FMissionNodeClassNode> SubNode)
+void FPDMissionDataNode::AddUniqueSubNode(TSharedPtr<FPDMissionDataNode> SubNode)
 {
 	for (int32 Idx = 0; Idx < SubNodes.Num(); Idx++)
 	{
-		if (SubNode->Data.GetClassName() == SubNodes[Idx]->Data.GetClassName())
+		if (SubNode->Data.GetDataEntryName() == SubNodes[Idx]->Data.GetDataEntryName())
 		{
 			return;
 		}
@@ -208,7 +232,7 @@ void FMissionNodeClassNode::AddUniqueSubNode(TSharedPtr<FMissionNodeClassNode> S
 	SubNodes.Add(SubNode);
 }
 
-void FMissionNodeClassHelper::GatherClasses(const UClass* BaseClass, TArray<FMissionNodeClassData>& AvailableClasses)
+void FPDMissionDataNodeHelper::GatherClasses(const UClass* BaseClass, TArray<FPDMissionNodeData>& AvailableClasses)
 {
 	const FString BaseClassName = BaseClass->GetName();
 	if (!RootNode.IsValid())
@@ -216,11 +240,11 @@ void FMissionNodeClassHelper::GatherClasses(const UClass* BaseClass, TArray<FMis
 		BuildClassGraph();
 	}
 
-	TSharedPtr<FMissionNodeClassNode> BaseNode = FindBaseClassNode(RootNode, BaseClassName);
+	TSharedPtr<FPDMissionDataNode> BaseNode = FindBaseClassNode(RootNode, BaseClassName);
 	FindAllSubClasses(BaseNode, AvailableClasses);
 }
 
-FString FMissionNodeClassHelper::GetDeprecationMessage(const UClass* Class)
+FString FPDMissionDataNodeHelper::GetDeprecationMessage(const UClass* Class)
 {
 	static FName MetaDeprecated = TEXT("DeprecatedNode");
 	static FName MetaDeprecatedMessage = TEXT("DeprecationMessage");
@@ -237,12 +261,12 @@ FString FMissionNodeClassHelper::GetDeprecationMessage(const UClass* Class)
 	return DeprecatedMessage;
 }
 
-bool FMissionNodeClassHelper::IsClassKnown(const FMissionNodeClassData& ClassData)
+bool FPDMissionDataNodeHelper::IsClassKnown(const FPDMissionNodeData& ClassData)
 {
 	return !ClassData.IsBlueprint() || !UnknownPackages.Contains(*ClassData.GetPackageName());
 }
 
-void FMissionNodeClassHelper::AddUnknownClass(const FMissionNodeClassData& ClassData)
+void FPDMissionDataNodeHelper::AddUnknownClass(const FPDMissionNodeData& ClassData)
 {
 	if (ClassData.IsBlueprint())
 	{
@@ -250,13 +274,13 @@ void FMissionNodeClassHelper::AddUnknownClass(const FMissionNodeClassData& Class
 	}
 }
 
-bool FMissionNodeClassHelper::IsHidingParentClass(UClass* Class)
+bool FPDMissionDataNodeHelper::IsHidingParentClass(UClass* Class)
 {
 	static FName MetaHideParent = TEXT("HideParentNode");
 	return Class && Class->HasAnyClassFlags(CLASS_Native) && Class->HasMetaData(MetaHideParent);
 }
 
-bool FMissionNodeClassHelper::IsHidingClass(UClass* Class)
+bool FPDMissionDataNodeHelper::IsHidingClass(UClass* Class)
 {
 	static FName MetaHideInEditor = TEXT("HiddenNode");
 
@@ -266,17 +290,17 @@ bool FMissionNodeClassHelper::IsHidingClass(UClass* Class)
 		|| ForcedHiddenClasses.Contains(Class));
 }
 
-bool FMissionNodeClassHelper::IsPackageSaved(FName PackageName)
+bool FPDMissionDataNodeHelper::IsPackageSaved(FName PackageName)
 {
 	const bool bFound = FPackageName::SearchForPackageOnDisk(PackageName.ToString());
 	return bFound;
 }
 
-void FMissionNodeClassHelper::OnAssetAdded(const struct FAssetData& AssetData)
+void FPDMissionDataNodeHelper::OnAssetAdded(const struct FAssetData& AssetData)
 {
-	TSharedPtr<FMissionNodeClassNode> Node = CreateClassDataNode(AssetData);
+	TSharedPtr<FPDMissionDataNode> Node = CreateClassDataNode(AssetData);
 
-	TSharedPtr<FMissionNodeClassNode> ParentNode;
+	TSharedPtr<FPDMissionDataNode> ParentNode;
 	if (Node.IsValid())
 	{
 		ParentNode = FindBaseClassNode(RootNode, Node->ParentClassName);
@@ -310,7 +334,7 @@ void FMissionNodeClassHelper::OnAssetAdded(const struct FAssetData& AssetData)
 	}
 }
 
-void FMissionNodeClassHelper::OnAssetRemoved(const struct FAssetData& AssetData)
+void FPDMissionDataNodeHelper::OnAssetRemoved(const struct FAssetData& AssetData)
 {
 	FString AssetClassName;
 	if (AssetData.GetTagValue(FBlueprintTags::GeneratedClassPath, AssetClassName))
@@ -318,7 +342,7 @@ void FMissionNodeClassHelper::OnAssetRemoved(const struct FAssetData& AssetData)
 		ConstructorHelpers::StripObjectClass(AssetClassName);
 		AssetClassName = FPackageName::ObjectPathToObjectName(AssetClassName);
 
-		TSharedPtr<FMissionNodeClassNode> Node = FindBaseClassNode(RootNode, AssetClassName);
+		TSharedPtr<FPDMissionDataNode> Node = FindBaseClassNode(RootNode, AssetClassName);
 		if (Node.IsValid() && Node->ParentNode.IsValid())
 		{
 			Node->ParentNode->SubNodes.RemoveSingleSwap(Node);
@@ -332,21 +356,21 @@ void FMissionNodeClassHelper::OnAssetRemoved(const struct FAssetData& AssetData)
 	}
 }
 
-void FMissionNodeClassHelper::InvalidateCache()
+void FPDMissionDataNodeHelper::InvalidateCache()
 {
 	RootNode.Reset();
 
 	UpdateAvailableBlueprintClasses();
 }
 
-void FMissionNodeClassHelper::OnReloadComplete(EReloadCompleteReason Reason)
+void FPDMissionDataNodeHelper::OnReloadComplete(EReloadCompleteReason Reason)
 {
 	InvalidateCache();
 }
 
-TSharedPtr<FMissionNodeClassNode> FMissionNodeClassHelper::CreateClassDataNode(const struct FAssetData& AssetData)
+TSharedPtr<FPDMissionDataNode> FPDMissionDataNodeHelper::CreateClassDataNode(const struct FAssetData& AssetData)
 {
-	TSharedPtr<FMissionNodeClassNode> Node;
+	TSharedPtr<FPDMissionDataNode> Node;
 
 	FString AssetClassName;
 	FString AssetParentClassName;
@@ -358,22 +382,22 @@ TSharedPtr<FMissionNodeClassNode> FMissionNodeClassHelper::CreateClassDataNode(c
 		UObject* Outer2(NULL);
 		ResolveName(Outer2, AssetParentClassName, false, false);
 
-		Node = MakeShareable(new FMissionNodeClassNode);
+		Node = MakeShareable(new FPDMissionDataNode);
 		Node->ParentClassName = AssetParentClassName;
 
-		FMissionNodeClassData NewData(AssetData.AssetName.ToString(), AssetData.PackageName.ToString(), AssetClassName, nullptr);
+		FPDMissionNodeData NewData(AssetData.AssetName.ToString(), AssetData.PackageName.ToString(), AssetClassName, nullptr);
 		Node->Data = NewData;
 	}
 
 	return Node;
 }
 
-TSharedPtr<FMissionNodeClassNode> FMissionNodeClassHelper::FindBaseClassNode(TSharedPtr<FMissionNodeClassNode> Node, const FString& ClassName)
+TSharedPtr<FPDMissionDataNode> FPDMissionDataNodeHelper::FindBaseClassNode(TSharedPtr<FPDMissionDataNode> Node, const FString& ClassName)
 {
-	TSharedPtr<FMissionNodeClassNode> RetNode;
+	TSharedPtr<FPDMissionDataNode> RetNode;
 	if (Node.IsValid())
 	{
-		if (Node->Data.GetClassName() == ClassName)
+		if (Node->Data.GetDataEntryName() == ClassName)
 		{
 			return Node;
 		}
@@ -391,11 +415,11 @@ TSharedPtr<FMissionNodeClassNode> FMissionNodeClassHelper::FindBaseClassNode(TSh
 	return RetNode;
 }
 
-void FMissionNodeClassHelper::FindAllSubClasses(TSharedPtr<FMissionNodeClassNode> Node, TArray<FMissionNodeClassData>& AvailableClasses)
+void FPDMissionDataNodeHelper::FindAllSubClasses(TSharedPtr<FPDMissionDataNode> Node, TArray<FPDMissionNodeData>& AvailableClasses)
 {
 	if (Node.IsValid())
 	{
-		if (!Node->Data.IsAbstract() && !Node->Data.IsDeprecated() && !Node->Data.bIsHidden)
+		if (!!Node->Data.IsDeprecated() && !Node->Data.bIsHidden)
 		{
 			AvailableClasses.Add(Node->Data);
 		}
@@ -407,9 +431,9 @@ void FMissionNodeClassHelper::FindAllSubClasses(TSharedPtr<FMissionNodeClassNode
 	}
 }
 
-void FMissionNodeClassHelper::BuildClassGraph()
+void FPDMissionDataNodeHelper::BuildClassGraph()
 {
-	TArray<TSharedPtr<FMissionNodeClassNode> > NodeList;
+	TArray<TSharedPtr<FPDMissionDataNode> > NodeList;
 	TArray<UClass*> HideParentList;
 	RootNode.Reset();
 
@@ -419,11 +443,11 @@ void FMissionNodeClassHelper::BuildClassGraph()
 		UClass* TestClass = *It;
 		if (TestClass->HasAnyClassFlags(CLASS_Native) && TestClass->IsChildOf(RootNodeClass))
 		{
-			TSharedPtr<FMissionNodeClassNode> NewNode = MakeShareable(new FMissionNodeClassNode);
+			TSharedPtr<FPDMissionDataNode> NewNode = MakeShareable(new FPDMissionDataNode);
 			NewNode->ParentClassName = TestClass->GetSuperClass()->GetName();
 
 			FString DeprecatedMessage = GetDeprecationMessage(TestClass);
-			FMissionNodeClassData NewData(TestClass, DeprecatedMessage);
+			FPDMissionNodeData NewData(TestClass, DeprecatedMessage);
 
 			NewData.bHideParent = IsHidingParentClass(TestClass);
 			if (NewData.bHideParent)
@@ -447,8 +471,8 @@ void FMissionNodeClassHelper::BuildClassGraph()
 	// find all hidden parent classes
 	for (int32 i = 0; i < NodeList.Num(); i++)
 	{
-		TSharedPtr<FMissionNodeClassNode> TestNode = NodeList[i];
-		if (HideParentList.Contains(TestNode->Data.GetClass()))
+		TSharedPtr<FPDMissionDataNode> TestNode = NodeList[i];
+		if (HideParentList.Contains(TestNode->Data.GetStruct()))
 		{
 			TestNode->Data.bIsHidden = true;
 		}
@@ -466,7 +490,7 @@ void FMissionNodeClassHelper::BuildClassGraph()
 
 		for (int32 i = 0; i < BlueprintList.Num(); i++)
 		{
-			TSharedPtr<FMissionNodeClassNode> NewNode = CreateClassDataNode(BlueprintList[i]);
+			TSharedPtr<FPDMissionDataNode> NewNode = CreateClassDataNode(BlueprintList[i]);
 			NodeList.Add(NewNode);
 		}
 	}
@@ -475,19 +499,19 @@ void FMissionNodeClassHelper::BuildClassGraph()
 	AddClassGraphChildren(RootNode, NodeList);
 }
 
-void FMissionNodeClassHelper::AddClassGraphChildren(TSharedPtr<FMissionNodeClassNode> Node, TArray<TSharedPtr<FMissionNodeClassNode> >& NodeList)
+void FPDMissionDataNodeHelper::AddClassGraphChildren(TSharedPtr<FPDMissionDataNode> Node, TArray<TSharedPtr<FPDMissionDataNode> >& NodeList)
 {
 	if (!Node.IsValid())
 	{
 		return;
 	}
 
-	const FString NodeClassName = Node->Data.GetClassName();
+	const FString NodeClassName = Node->Data.GetDataEntryName();
 	for (int32 i = NodeList.Num() - 1; i >= 0; i--)
 	{
 		if (NodeList[i]->ParentClassName == NodeClassName)
 		{
-			TSharedPtr<FMissionNodeClassNode> MatchingNode = NodeList[i];
+			TSharedPtr<FPDMissionDataNode> MatchingNode = NodeList[i];
 			NodeList.RemoveAt(i);
 
 			MatchingNode->ParentNode = Node;
@@ -498,17 +522,17 @@ void FMissionNodeClassHelper::AddClassGraphChildren(TSharedPtr<FMissionNodeClass
 	}
 }
 
-int32 FMissionNodeClassHelper::GetObservedBlueprintClassCount(UClass* BaseNativeClass)
+int32 FPDMissionDataNodeHelper::GetObservedBlueprintClassCount(UClass* BaseNativeClass)
 {
 	return BlueprintClassCount.FindRef(BaseNativeClass);
 }
 
-void FMissionNodeClassHelper::AddObservedBlueprintClasses(UClass* BaseNativeClass)
+void FPDMissionDataNodeHelper::AddObservedBlueprintClasses(UClass* BaseNativeClass)
 {
 	BlueprintClassCount.Add(BaseNativeClass, 0);
 }
 
-void FMissionNodeClassHelper::UpdateAvailableBlueprintClasses()
+void FPDMissionDataNodeHelper::UpdateAvailableBlueprintClasses()
 {
 	if (FModuleManager::Get().IsModuleLoaded(TEXT("AssetRegistry")))
 	{
@@ -532,7 +556,7 @@ void FMissionNodeClassHelper::UpdateAvailableBlueprintClasses()
 	}
 }
 
-void FMissionNodeClassHelper::AddForcedHiddenClass(UClass* Class)
+void FPDMissionDataNodeHelper::AddForcedHiddenClass(UClass* Class)
 {
 	if (Class)
 	{
@@ -540,12 +564,12 @@ void FMissionNodeClassHelper::AddForcedHiddenClass(UClass* Class)
 	}
 }
 
-void FMissionNodeClassHelper::SetForcedHiddenClasses(const TSet<UClass*>& Classes)
+void FPDMissionDataNodeHelper::SetForcedHiddenClasses(const TSet<UClass*>& Classes)
 {
 	ForcedHiddenClasses = Classes;
 }
 
-void FMissionNodeClassHelper::SetGatherBlueprints(const bool bGather)
+void FPDMissionDataNodeHelper::SetGatherBlueprints(const bool bGather)
 {
 	bGatherBlueprints = bGather;
 }

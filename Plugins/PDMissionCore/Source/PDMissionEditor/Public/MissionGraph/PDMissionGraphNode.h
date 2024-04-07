@@ -1,4 +1,25 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿/*
+ * @copyright Permafrost Development (MIT license) 
+ * Authors: Ario Amin
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE. 
+*/
 
 #pragma once
 
@@ -7,9 +28,9 @@
 #include <UObject/ObjectMacros.h>
 #include <EdGraph/EdGraphNode.h>
 
+#include "PDMissionGraphTypes.h"
 
-#include "MissionGraphTypes.h"
-#include "MissionGraphNode.generated.h"
+#include "PDMissionGraphNode.generated.h"
 
 class UEdGraph;
 class UEdGraphPin;
@@ -18,24 +39,24 @@ struct FDiffResults;
 struct FDiffSingleResult;
 
 UCLASS()
-class PDMISSIONEDITOR_API UMissionGraphNode : public UEdGraphNode
+class PDMISSIONEDITOR_API UPDMissionGraphNode : public UEdGraphNode
 {
 	GENERATED_UCLASS_BODY()
 
 	/** instance class */
 	UPROPERTY()
-	struct FMissionNodeClassData ClassData;
+	struct FPDMissionNodeData ClassData;
 
 	UPROPERTY()
-	TObjectPtr<UObject> NodeInstance;
+	TObjectPtr<UStruct> NodeInstance;
 
 	UPROPERTY(transient)
-	TObjectPtr<UMissionGraphNode> ParentNode;
+	TObjectPtr<UPDMissionGraphNode> ParentNode;
 
 	UPROPERTY()
-	TArray<TObjectPtr<UMissionGraphNode>> SubNodes;
+	TArray<TObjectPtr<UPDMissionGraphNode>> SubNodes;
 
-	/** subnode index assigned during copy operation to connect nodes again on paste */
+	/** sub-node index assigned during copy operation to connect nodes again on paste */
 	UPROPERTY()
 	int32 CopySubNodeIndex;
 
@@ -43,7 +64,7 @@ class PDMISSIONEDITOR_API UMissionGraphNode : public UEdGraphNode
 	UPROPERTY()
 	uint32 bIsReadOnly : 1;
 
-	/** if set, this node will be always considered as subnode */
+	/** if set, this node will be always considered as a sub-node */
 	UPROPERTY()
 	uint32 bIsSubNode : 1;
 
@@ -52,7 +73,7 @@ class PDMISSIONEDITOR_API UMissionGraphNode : public UEdGraphNode
 	FString ErrorMessage;
 
 	//~ Begin UEdGraphNode Interface
-	virtual class UMissionGraph* GetMissionGraph();
+	virtual class UPDMissionGraph* GetMissionGraph();
 	virtual void AutowireNewNode(UEdGraphPin* FromPin) override;
 	virtual void PostPlacedNewNode() override;
 	virtual void PrepareForCopying() override;
@@ -77,19 +98,19 @@ class PDMISSIONEDITOR_API UMissionGraphNode : public UEdGraphNode
 	virtual UEdGraphPin* GetInputPin(int32 InputIndex = 0) const;
 	// @return the output pin for this state
 	virtual UEdGraphPin* GetOutputPin(int32 InputIndex = 0) const;
-	virtual UEdGraph* GetBoundGraph() const { return NULL; }
+	virtual UEdGraph* GetBoundGraph() const { return nullptr; }
 
 	virtual FText GetDescription() const;
 	virtual void PostCopyNode();
 
-	void AddSubNode(UMissionGraphNode* SubNode, class UEdGraph* ParentGraph);
-	void RemoveSubNode(UMissionGraphNode* SubNode);
+	void AddSubNode(UPDMissionGraphNode* SubNode, class UEdGraph* ParentGraph);
+	void RemoveSubNode(UPDMissionGraphNode* SubNode);
 	virtual void RemoveAllSubNodes();
-	virtual void OnSubNodeRemoved(UMissionGraphNode* SubNode);
-	virtual void OnSubNodeAdded(UMissionGraphNode* SubNode);
+	virtual void OnSubNodeRemoved(UPDMissionGraphNode* SubNode);
+	virtual void OnSubNodeAdded(UPDMissionGraphNode* SubNode);
 
-	virtual int32 FindSubNodeDropIndex(UMissionGraphNode* SubNode) const;
-	virtual void InsertSubNodeAt(UMissionGraphNode* SubNode, int32 DropIndex);
+	virtual int32 FindSubNodeDropIndex(UPDMissionGraphNode* SubNode) const;
+	virtual void InsertSubNodeAt(UPDMissionGraphNode* SubNode, int32 DropIndex);
 
 	/** check if node is subnode */
 	virtual bool IsSubNode() const;
@@ -115,7 +136,7 @@ class PDMISSIONEDITOR_API UMissionGraphNode : public UEdGraphNode
 	/** check if node has any errors, used for assigning colors on graph */
 	virtual bool HasErrors() const;
 
-	static void UpdateNodeClassDataFrom(UClass* InstanceClass, FMissionNodeClassData& UpdatedData);
+	static void UpdateNodeDataFrom(UClass* InstanceClass, FPDMissionNodeData& UpdatedData);
 
 protected:
 

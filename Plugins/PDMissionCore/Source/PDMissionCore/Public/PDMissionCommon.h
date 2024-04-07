@@ -56,7 +56,7 @@ enum EPDMissionState
 /** @brief Called when a mission updated, used it's mID */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPDUpdateMission, int32, mID, EPDMissionState, vNewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPDTickMission, int32, mID, FPDUpdateMission, UpdateFunction);
-typedef TMap<int32, FPDUpdateMission> FMissionTreeMap;
+typedef TMap<int32, FPDUpdateMission> FPDMissionTreeMap;
 
 
 /**
@@ -175,7 +175,7 @@ struct PDMISSIONCORE_API FPDMissionState
  *  @todo write initial implementation
  */
 USTRUCT(BlueprintType)
-struct FPDFMissionModData
+struct FPDFPDMissionModData
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -194,7 +194,7 @@ struct FPDMissionStatusHandler
 	GENERATED_BODY()
 public:
 	/** @brief Targets DataCompound and accumulates a value based on the selected ModifierType */
-	void AccumulateData(const FGameplayTag& InTag, FPDFMissionModData& DataCompound) const;
+	void AccumulateData(const FGameplayTag& InTag, FPDFPDMissionModData& DataCompound) const;
 	
 };
 
@@ -288,7 +288,7 @@ public:
 	FPDMissionRules(FPDMissionTagCompound _MissionConditionHandler, FPDMissionBranch _NextMissionBranch, uint8 bRepeatable)
 		: MissionConditionHandler(_MissionConditionHandler), NextMissionBranch(_NextMissionBranch) ,bRepeatable(0) {};
 	
-	void IterateStatusHandlers(const FGameplayTag& Tag, FPDFMissionModData& OutStatVariables);
+	void IterateStatusHandlers(const FGameplayTag& Tag, FPDFPDMissionModData& OutStatVariables);
 
 	/** @brief Flags that need to exist on the actor requesting this mission for it to be approved */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mission|Datum")

@@ -28,6 +28,8 @@
 void FPDMissionEditorCommands::RegisterCommands()
 {
 	UI_COMMAND(OpenPluginWindow, "PDMissionCore", "Bring up PDMissionCore window", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(SearchMissionTree, "Search", "Search this mission tree.", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control, EKeys::F));
 }
+
 
 #undef LOCTEXT_NAMESPACE

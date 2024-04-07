@@ -1,44 +1,68 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿/*
+ * @copyright Permafrost Development (MIT license) 
+ * Authors: Ario Amin
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE. 
+*/
 
-
-#include "MissionGraph/MissionGraph.h"
-
+#include "MissionGraph/PDMissionGraph.h"
+#include "MissionGraph/PDMissionGraphNode.h"
 #include "PDMissionEditor.h"
-#include "MissionGraph/MissionGraphNode.h"
-#include "MissionGraphTypes.h"
+#include "PDMissionGraphTypes.h"
+
 #include "Containers/Array.h"
 #include "Containers/EnumAsByte.h"
+
 #include "EdGraph/EdGraphPin.h"
 #include "EdGraph/EdGraphSchema.h"
+
 #include "HAL/PlatformMath.h"
 #include "Logging/LogCategory.h"
 #include "Logging/LogMacros.h"
+
 #include "Serialization/Archive.h"
 #include "Templates/Casts.h"
 #include "Trace/Detail/Channel.h"
+
 #include "UObject/Object.h"
 #include "UObject/ObjectPtr.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectHash.h"
 
-UMissionGraph::UMissionGraph(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
+UPDMissionGraph::UPDMissionGraph(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	bHaltRefresh = false;
 	GraphVersion = INDEX_NONE;
 }
 
-void UMissionGraph::UpdateData(int32 UpdateFlags)
+void UPDMissionGraph::UpdateData(int32 UpdateFlags)
 {
 	if (bHaltRefresh) { return; }
 
 	// Fix up the parent node pointers (which are marked transient for some reason)
 	for (UEdGraphNode* Node : Nodes)
 	{
-		UMissionGraphNode* AINode = Cast<UMissionGraphNode>(Node);
+		UPDMissionGraphNode* AINode = Cast<UPDMissionGraphNode>(Node);
 		
 		if (AINode == nullptr) { continue; }
 		
-		for (UMissionGraphNode* SubNode : AINode->SubNodes)
+		for (UPDMissionGraphNode* SubNode : AINode->SubNodes)
 		{
 			if (SubNode == nullptr) { continue; }
 
@@ -47,26 +71,26 @@ void UMissionGraph::UpdateData(int32 UpdateFlags)
 	}
 
 	// UDataTable* MissionTable = CastChecked<UDataTable>(GetOuter());
-	// FMissionCompiler::RebuildBank(MissionTable);
+	// FPDMissionCompiler::RebuildBank(MissionTable);
 }
 
-void UMissionGraph::OnCreated()
+void UPDMissionGraph::OnCreated()
 {
 	MarkVersion();
 }
 
-void UMissionGraph::OnLoaded()
+void UPDMissionGraph::OnLoaded()
 {
 	UpdateDeprecatedClasses();
 	UpdateUnknownNodeClasses();
 }
 
-void UMissionGraph::Initialize()
+void UPDMissionGraph::Initialize()
 {
 	UpdateVersion();
 }
 
-void UMissionGraph::UpdateVersion()
+void UPDMissionGraph::UpdateVersion()
 {
 	if (GraphVersion == 1)
 	{
@@ -77,17 +101,17 @@ void UMissionGraph::UpdateVersion()
 	Modify();
 }
 
-void UMissionGraph::MarkVersion()
+void UPDMissionGraph::MarkVersion()
 {
 	GraphVersion = 1;
 }
 
-bool UMissionGraph::UpdateUnknownNodeClasses()
+bool UPDMissionGraph::UpdateUnknownNodeClasses()
 {
 	bool bUpdated = false;
 	for (int32 NodeIdx = 0; NodeIdx < Nodes.Num(); NodeIdx++)
 	{
-		UMissionGraphNode* MyNode = Cast<UMissionGraphNode>(Nodes[NodeIdx]);
+		UPDMissionGraphNode* MyNode = Cast<UPDMissionGraphNode>(Nodes[NodeIdx]);
 		if (MyNode)
 		{
 			const bool bUpdatedNode = MyNode->RefreshNodeClass();
@@ -107,12 +131,12 @@ bool UMissionGraph::UpdateUnknownNodeClasses()
 	return bUpdated;
 }
 
-void UpdateMissionGraphNodeErrorMessage(UMissionGraphNode& Node)
+void UpdateMissionGraphNodeErrorMessage(UPDMissionGraphNode& Node)
 {
 	// Broke out setting error message in to own function so it can be reused when iterating nodes collection.
 	if (Node.NodeInstance)
 	{
-		Node.ErrorMessage = FMissionNodeClassHelper::GetDeprecationMessage(Node.NodeInstance->GetClass());
+		Node.ErrorMessage = FPDMissionDataNodeHelper::GetDeprecationMessage(Node.NodeInstance->GetClass());
 
 		// Only check for node-specific errors if the node is not deprecated
 		if (Node.ErrorMessage.IsEmpty())
@@ -126,7 +150,7 @@ void UpdateMissionGraphNodeErrorMessage(UMissionGraphNode& Node)
 	else
 	{
 		// Null instance. Do we have any meaningful class data?
-		FString StoredClassName = Node.ClassData.GetClassName();
+		FString StoredClassName = Node.ClassData.GetDataEntryName();
 		StoredClassName.RemoveFromEnd(TEXT("_C"));
 
 		if (!StoredClassName.IsEmpty())
@@ -143,13 +167,13 @@ void UpdateMissionGraphNodeErrorMessage(UMissionGraphNode& Node)
 	}
 }
 
-void UMissionGraph::UpdateDeprecatedClasses()
+void UPDMissionGraph::UpdateDeprecatedClasses()
 {
 	// This function sets error messages and logs errors about nodes.
 
 	for (int32 Idx = 0, IdxNum = Nodes.Num(); Idx < IdxNum; ++Idx)
 	{
-		UMissionGraphNode* Node = Cast<UMissionGraphNode>(Nodes[Idx]);
+		UPDMissionGraphNode* Node = Cast<UPDMissionGraphNode>(Nodes[Idx]);
 		if (Node != nullptr)
 		{
 			UpdateMissionGraphNodeErrorMessage(*Node);
@@ -165,7 +189,7 @@ void UMissionGraph::UpdateDeprecatedClasses()
 	}
 }
 
-void UMissionGraph::Serialize(FArchive& Ar)
+void UPDMissionGraph::Serialize(FArchive& Ar)
 {
 	// Overridden to flags up errors in the behavior tree while cooking.
 	Super::Serialize(Ar);
@@ -179,18 +203,18 @@ void UMissionGraph::Serialize(FArchive& Ar)
 	}
 }
 
-void UMissionGraph::UpdateClassData()
+void UPDMissionGraph::UpdateClassData()
 {
 	for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
 	{
-		UMissionGraphNode* Node = Cast<UMissionGraphNode>(Nodes[Idx]);
+		UPDMissionGraphNode* Node = Cast<UPDMissionGraphNode>(Nodes[Idx]);
 		if (Node)
 		{
 			Node->UpdateNodeClassData();
 
 			for (int32 SubIdx = 0; SubIdx < Node->SubNodes.Num(); SubIdx++)
 			{
-				if (UMissionGraphNode* SubNode = Node->SubNodes[SubIdx])
+				if (UPDMissionGraphNode* SubNode = Node->SubNodes[SubIdx])
 				{
 					SubNode->UpdateNodeClassData();
 				}
@@ -199,11 +223,11 @@ void UMissionGraph::UpdateClassData()
 	}
 }
 
-void UMissionGraph::CollectAllNodeInstances(TSet<UObject*>& NodeInstances)
+void UPDMissionGraph::CollectAllNodeInstances(TSet<UObject*>& NodeInstances)
 {
 	for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
 	{
-		UMissionGraphNode* MyNode = Cast<UMissionGraphNode>(Nodes[Idx]);
+		UPDMissionGraphNode* MyNode = Cast<UPDMissionGraphNode>(Nodes[Idx]);
 		if (MyNode)
 		{
 			NodeInstances.Add(MyNode->NodeInstance);
@@ -219,14 +243,14 @@ void UMissionGraph::CollectAllNodeInstances(TSet<UObject*>& NodeInstances)
 	}
 }
 
-bool UMissionGraph::CanRemoveNestedObject(UObject* TestObject) const
+bool UPDMissionGraph::CanRemoveNestedObject(UObject* TestObject) const
 {
 	return !TestObject->IsA(UEdGraphNode::StaticClass()) &&
 		!TestObject->IsA(UEdGraph::StaticClass()) &&
 		!TestObject->IsA(UEdGraphSchema::StaticClass());
 }
 
-void UMissionGraph::RemoveOrphanedNodes()
+void UPDMissionGraph::RemoveOrphanedNodes()
 {
 	TSet<UObject*> NodeInstances;
 	CollectAllNodeInstances(NodeInstances);
@@ -250,17 +274,17 @@ void UMissionGraph::RemoveOrphanedNodes()
 	}
 }
 
-void UMissionGraph::OnNodeInstanceRemoved(UObject* NodeInstance)
+void UPDMissionGraph::OnNodeInstanceRemoved(UObject* NodeInstance)
 {
 	// empty in base class
 }
 
-void UMissionGraph::OnNodesPasted(const FString& ImportStr)
+void UPDMissionGraph::OnNodesPasted(const FString& ImportStr)
 {
 	// empty in base class
 }
 
-UEdGraphPin* UMissionGraph::FindGraphNodePin(UEdGraphNode* Node, EEdGraphPinDirection Dir)
+UEdGraphPin* UPDMissionGraph::FindGraphNodePin(UEdGraphNode* Node, EEdGraphPinDirection Dir)
 {
 	UEdGraphPin* Pin = nullptr;
 	for (int32 Idx = 0; Idx < Node->Pins.Num(); Idx++)
@@ -275,23 +299,23 @@ UEdGraphPin* UMissionGraph::FindGraphNodePin(UEdGraphNode* Node, EEdGraphPinDire
 	return Pin;
 }
 
-bool UMissionGraph::IsLocked() const
+bool UPDMissionGraph::IsLocked() const
 {
 	return bHaltRefresh;
 }
 
-void UMissionGraph::LockUpdates()
+void UPDMissionGraph::LockUpdates()
 {
 	bHaltRefresh = true;
 }
 
-void UMissionGraph::UnlockUpdates()
+void UPDMissionGraph::UnlockUpdates()
 {
 	bHaltRefresh = false;
 	UpdateData();
 }
 
-void UMissionGraph::OnSubNodeDropped()
+void UPDMissionGraph::OnSubNodeDropped()
 {
 	NotifyGraphChanged();
 }
