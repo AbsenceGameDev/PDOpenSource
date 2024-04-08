@@ -22,7 +22,7 @@
 */
 
 #include "MissionGraph/PDMissionTabFactories.h"
-#include "..\..\Public\MissionGraph\FPDMissionEditor.h"
+#include "MissionGraph/FPDMissionEditor.h"
 
 #include "Engine/Blueprint.h"
 

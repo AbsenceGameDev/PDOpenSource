@@ -18,12 +18,12 @@
 		{
 			"Name": "PDMissionCore",
 			"Type": "Runtime",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "PreDefault"
 		},
 		{
 			"Name": "PDMissionEditor",
 			"Type": "Editor",
-			"LoadingPhase": "PreDefault"
+			"LoadingPhase": "Default"
 		}
 	]
 }

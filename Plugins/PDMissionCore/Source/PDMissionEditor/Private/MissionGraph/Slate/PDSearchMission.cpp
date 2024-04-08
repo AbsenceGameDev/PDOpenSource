@@ -22,7 +22,7 @@
 */
 
 #include "MissionGraph/Slate/PDSearchMission.h"
-#include "..\..\..\Public\MissionGraph\FPDMissionEditor.h"
+#include "MissionGraph/FPDMissionEditor.h"
 #include "MissionGraph/PDMissionGraphNode.h"
 
 #include "EdGraph/EdGraph.h"

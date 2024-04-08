@@ -27,7 +27,7 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #include "PDMissionCommon.h"
-#include "..\..\Public\MissionGraph\FPDMissionEditor.h"
+#include "MissionGraph/FPDMissionEditor.h"
 
 
 #define LOCTEXT_NAMESPACE "MissionEditorToolbar"

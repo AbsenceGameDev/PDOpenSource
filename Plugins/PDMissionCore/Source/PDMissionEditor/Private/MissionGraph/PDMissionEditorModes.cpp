@@ -22,10 +22,10 @@
 */
 
 #include "MissionGraph/PDMissionEditorModes.h"
-#include "..\..\Public\MissionGraph\FPDMissionEditor.h"
-#include "PDMissionGraphTypes.h"
+#include "MissionGraph/FPDMissionEditor.h"
 #include "MissionGraph/PDMissionEditorToolbar.h"
 #include "MissionGraph/PDMissionTabFactories.h"
+#include "PDMissionGraphTypes.h"
 
 FMissionEditorApplicationMode_GraphView::FMissionEditorApplicationMode_GraphView(TSharedPtr<FFPDMissionGraphEditor> InMissionEditor)
 	: FApplicationMode(FFPDMissionGraphEditor::GraphViewMode, FFPDMissionGraphEditor::GetLocalizedMode)

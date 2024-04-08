@@ -37,8 +37,8 @@
 #include "ObjectEditorUtils.h"
 #include "Logging/MessageLog.h"
 #include "AssetRegistry/ARFilter.h"
+#include "MissionGraph/FPDMissionEditor.h"
 #include "AssetRegistry/AssetRegistryModule.h"
-#include "..\Public\MissionGraph\FPDMissionEditor.h"
 #include "Engine/CompositeDataTable.h"
 #include "MissionGraph/PDMissionGraphNode.h"
 
