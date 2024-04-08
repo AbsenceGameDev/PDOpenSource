@@ -51,11 +51,19 @@ class UEdGraphNode;
 #pragma once
 
 
-class PDMISSIONEDITOR_API FPDMissionGraphEditor : public FEditorUndoClient, public FWorkflowCentricApplication, public FNotifyHook
+#define FOnCanConst(Token) \
+	void Token () const;\
+	bool Can##Token () const;
+#define FOnCan(Token) \
+	void Token ();\
+	bool Can##Token () const;
+
+
+class PDMISSIONEDITOR_API FFPDMissionGraphEditor : public FEditorUndoClient, public FWorkflowCentricApplication, public FNotifyHook
 {
 public:
-	FPDMissionGraphEditor();
-	virtual ~FPDMissionGraphEditor();
+	FFPDMissionGraphEditor();
+	virtual ~FFPDMissionGraphEditor();
 
 	FGraphPanelSelectionSet GetSelectedNodes() const;
 	virtual void OnSelectedNodesChanged(const TSet<class UObject*>& NewSelection);
@@ -67,60 +75,35 @@ public:
 
 	void CreateCommandList();
 
-	// Delegates for graph editor commands
-	void SelectAllNodes() const;
-	void DeleteNodes() const;
+	/** @brief Delegates for graph editor commands */
 	void DeleteSelectedDuplicatableNodes();
-	void CutNodes();
-	void CopyNodes() const;
-	void PasteNodes();
 	void PasteNodesAtLocation(const FVector2D& Location);
-	void DuplicateNodes();
-	void CreateComment() const;
-	
-	bool CanSelectAllNodes() const;
-	bool CanDeleteNodes() const;
-	void SearchMissionTree() const;
-	bool CanSearchMissionTree() const;
-	bool CanCutNodes() const;
-	bool CanCopyNodes() const;
-	bool CanPasteNodes() const;
-	bool CanDuplicateNodes() const;
-	bool CanCreateComment() const;
 
+	// Node operations
+	FOnCanConst(SelectAllNodes);
+	FOnCanConst(DeleteNodes);
+	FOnCanConst(SearchMissionTree);
+	FOnCan(CutNodes);
+	FOnCanConst(CopyNodes);
+	FOnCan(PasteNodes);
+	FOnCan(DuplicateNodes);
+	FOnCanConst(CreateComment);
 
-
+	/** @brief Graph operations */
 	virtual void OnClassListUpdated();
 
-protected:
-	virtual void FixupPastedNodes(const TSet<UEdGraphNode*>& NewPastedGraphNodes, const TMap<FGuid/*New*/, FGuid/*Old*/>& NewToOldNodeMapping);
-
-protected:
-
-	/** Currently focused graph */
-	TWeakPtr<SGraphEditor> FocusGraphEditorPtr;
-
-	/** The command list for this editor */
-	TSharedPtr<FUICommandList> GraphEditorCommands;
-
-	/** Handle to the registered OnClassListUpdated delegate */
-	FDelegateHandle OnClassListUpdatedDelegateHandle;
-
-////////////
-////////////
-////////////
-////////////
-////////////
-	
-public:
-
-	FSimpleMulticastDelegate FocusedGraphEditorChanged;
-
+	/** @brief Register tab spawners for the mission editor */
 	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager) override;
 
-	void InitMissionEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, const FPDMissionGraph_NodeData& InData);
+	/** @brief This function is called when the module starts */
+	void InitMissionEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, const FPDMissionNodeHandle& InData);
+	/** @brief This function is called when the module starts */	
+	void InitMissionEditor( const FPDMissionNodeHandle& InData);
 
-	static TSharedRef<FPDMissionGraphEditor> CreateMissionEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, const FPDMissionGraph_NodeData& InData);
+	/** @brief This function is called when the module starts */	
+	static TSharedRef<FFPDMissionGraphEditor> CreateMissionEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, const FPDMissionNodeHandle& InData);
+	/** @brief This function is called when the module starts */	
+	static TSharedRef<FFPDMissionGraphEditor> CreateMissionEditor(const FPDMissionNodeHandle& InData);
 
 	//~ Begin IToolkit Interface
 	virtual FName GetToolkitFName() const override;
@@ -142,14 +125,11 @@ public:
 	void OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor);
 	void OnNodeTitleCommitted(const FText& NewText, ETextCommit::Type CommitInfo, UEdGraphNode* NodeBeingChanged);
 
-	FPDMissionDebuggerHandler DebugHandler;
-
 	FGraphAppearanceInfo GetGraphAppearance() const;
 	bool InEditingMode(bool bGraphIsEditable) const;
 	TWeakPtr<SGraphEditor> GetFocusedGraphPtr() const;
 
 	EVisibility GetDebuggerDetailsVisibility() const;
-
 
 	/** 
 	 * Get the localized text to display for the specified mode 
@@ -162,10 +142,10 @@ public:
 	TSharedPtr<class FPDMissionEditorToolbar> GetToolbarBuilder() { return ToolbarBuilder; }
 
 	/** Get the mission asset we are editing (if any) */
-	FPDMissionGraph_NodeData& GetMissionData() const;
+	FPDMissionNodeHandle& GetMissionData() const;
 
 	/** Spawns the tab with the update graph inside */
-	TSharedRef<SWidget> SpawnProperties();
+	TSharedRef<SWidget> SpawnProperties() const;
 
 	/** Spawns the search tab */
 	TSharedRef<SWidget> SpawnSearch();
@@ -191,9 +171,17 @@ public:
 	/** Handler for when a node class is picked */
 	void HandleNewNodeStructPicked(const UScriptStruct* InStruct) const;
 
-private:
+	/** @brief Get graph editor (tab) factory pointer */
+	TWeakPtr<FDocumentTabFactory> GetGraphEditorTabFactoryPtr() { return GraphEditorTabFactoryPtr; };
+
 	/** Create widget for graph editing */
 	TSharedRef<class SGraphEditor> CreateGraphEditorWidget(UEdGraph* InGraph);
+
+
+protected:
+	virtual void FixupPastedNodes(const TSet<UEdGraphNode*>& NewPastedGraphNodes, const TMap<FGuid/*New*/, FGuid/*Old*/>& NewToOldNodeMapping);
+
+private:
 	bool IsPropertyEditable() const;
 	void OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
 
@@ -206,11 +194,28 @@ private:
 	/** Setup common commands */
 	void BindCommands();
 
+
+public:
+	/** Modes in mode switcher */
+	static const FName GraphViewMode;
+	static const FName TreeViewMode;
+	FPDMissionDebuggerHandler DebugHandler;
+	FSimpleMulticastDelegate FocusedGraphEditorChanged;
+
+protected:
+
+	/** Currently focused graph */
+	TWeakPtr<SGraphEditor> FocusGraphEditorPtr;
+
+	/** The command list for this editor */
+	TSharedPtr<FUICommandList> GraphEditorCommands;
+
+private:
 	TSharedPtr<FDocumentTracker> DocumentManager;
 	TWeakPtr<FDocumentTabFactory> GraphEditorTabFactoryPtr;
 
 	/* The mission being edited */
-	FPDMissionGraph_NodeData MissionData;
+	FPDMissionNodeHandle MissionData;
 
 	/** Property View */
 	TSharedPtr<class IDetailsView> DetailsView;
@@ -223,10 +228,6 @@ private:
 
 	uint32 bForceDisablePropertyEdit : 1;
 
-	TSharedPtr<FPDMissionEditorToolbar> ToolbarBuilder;
+	TSharedPtr<FPDMissionEditorToolbar> ToolbarBuilder;	
 
-public:
-	/** Modes in mode switcher */
-	static const FName GraphViewMode;
-	static const FName TreeViewMode;
 };

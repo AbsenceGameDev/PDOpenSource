@@ -22,7 +22,7 @@
 */
 
 
-#include "MissionGraph/PDMissionEditor.h"
+#include "..\..\Public\MissionGraph\FPDMissionEditor.h"
 
 #include "MissionGraph/PDMissionGraph.h"
 #include "MissionGraph/PDMissionGraphNode.h"
@@ -51,46 +51,41 @@
 
 #define LOCTEXT_NAMESPACE "MissionGraph"
 
-const FName FPDMissionGraphEditor::GraphViewMode("GraphViewMode");
-const FName FPDMissionGraphEditor::TreeViewMode("TreeViewMode");
+const FName FFPDMissionGraphEditor::GraphViewMode("GraphViewMode");
+const FName FFPDMissionGraphEditor::TreeViewMode("TreeViewMode");
 
 const FName MissionEditorAppIdentifier("MissionEditorApp");
 
-FPDMissionGraphEditor::FPDMissionGraphEditor()
+FFPDMissionGraphEditor::FFPDMissionGraphEditor()
 {
 	MissionData.DataTarget = FDataTableRowHandle{};
 	bCheckDirtyOnAssetSave = true;
 	
 	UEditorEngine* Editor = static_cast<UEditorEngine*>(GEngine);
 	if (Editor != nullptr) { Editor->RegisterForUndo(this); }
-
-	OnClassListUpdatedDelegateHandle =
-		FPDMissionDataNodeHelper::OnPackageListUpdated.AddRaw(this, &FPDMissionGraphEditor::OnClassListUpdated);
 }
 
 
-FPDMissionGraphEditor::~FPDMissionGraphEditor()
+FFPDMissionGraphEditor::~FFPDMissionGraphEditor()
 {
 	// Debugger.Reset(); @todo : debugger
 	UEditorEngine* Editor = static_cast<UEditorEngine*>(GEngine);
 	if (Editor) { Editor->UnregisterForUndo(this); }
-
-	FPDMissionDataNodeHelper::OnPackageListUpdated.Remove(OnClassListUpdatedDelegateHandle);
 }
 
 #define MGenericMapAction(Token) \
 	MapAction(FGenericCommands::Get(). Token, \
-		FExecuteAction::CreateRaw(this, &FPDMissionGraphEditor:: Token##Nodes), \
-		FCanExecuteAction::CreateRaw(this, &FPDMissionGraphEditor::Can##Token##Nodes) \
+		FExecuteAction::CreateRaw(this, &FFPDMissionGraphEditor:: Token##Nodes), \
+		FCanExecuteAction::CreateRaw(this, &FFPDMissionGraphEditor::Can##Token##Nodes) \
 		);
 
 #define MGEMapAction(Token) \
 	MapAction(FGraphEditorCommands::Get(). Token, \
-		FExecuteAction::CreateRaw(this, &FPDMissionGraphEditor:: Token), \
-		FCanExecuteAction::CreateRaw(this, &FPDMissionGraphEditor::Can##Token) \
+		FExecuteAction::CreateRaw(this, &FFPDMissionGraphEditor:: Token ), \
+		FCanExecuteAction::CreateRaw(this, &FFPDMissionGraphEditor::Can##Token ) \
 		);	
 
-void FPDMissionGraphEditor::CreateCommandList()
+void FFPDMissionGraphEditor::CreateCommandList()
 {
 	if (GraphEditorCommands.IsValid()) { return; }
 
@@ -105,7 +100,7 @@ void FPDMissionGraphEditor::CreateCommandList()
 	GraphEditorCommands->MGEMapAction(CreateComment);
 }
 
-FGraphPanelSelectionSet FPDMissionGraphEditor::GetSelectedNodes() const
+FGraphPanelSelectionSet FFPDMissionGraphEditor::GetSelectedNodes() const
 {
 	const TSharedPtr<SGraphEditor> FocusedGraphEd = FocusGraphEditorPtr.Pin();
 	if (FocusedGraphEd == nullptr) { return FGraphPanelSelectionSet{}; }
@@ -113,12 +108,12 @@ FGraphPanelSelectionSet FPDMissionGraphEditor::GetSelectedNodes() const
 	return FocusedGraphEd->GetSelectedNodes();
 }
 
-void FPDMissionGraphEditor::OnSelectedNodesChanged(const TSet<class UObject*>& NewSelection)
+void FFPDMissionGraphEditor::OnSelectedNodesChanged(const TSet<class UObject*>& NewSelection)
 {
 	// @todo
 }
 
-void FPDMissionGraphEditor::PostUndo(bool bSuccess)
+void FFPDMissionGraphEditor::PostUndo(bool bSuccess)
 {
 	if (bSuccess == false) { return; }
 
@@ -134,7 +129,7 @@ void FPDMissionGraphEditor::PostUndo(bool bSuccess)
 	CurrentGraphEditor->NotifyGraphChanged();
 }
 
-void FPDMissionGraphEditor::PostRedo(bool bSuccess)
+void FFPDMissionGraphEditor::PostRedo(bool bSuccess)
 {
 	if (bSuccess == false) { return; }
 
@@ -150,7 +145,7 @@ void FPDMissionGraphEditor::PostRedo(bool bSuccess)
 	CurrentGraphEditor->NotifyGraphChanged();
 }
 
-void FPDMissionGraphEditor::SelectAllNodes() const
+void FFPDMissionGraphEditor::SelectAllNodes() const
 {
 	const TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusGraphEditorPtr.Pin();
 	if (CurrentGraphEditor == nullptr) { return; }
@@ -158,12 +153,12 @@ void FPDMissionGraphEditor::SelectAllNodes() const
 	CurrentGraphEditor->SelectAllNodes();
 }
 
-bool FPDMissionGraphEditor::CanSelectAllNodes() const
+bool FFPDMissionGraphEditor::CanSelectAllNodes() const
 {
 	return true;
 }
 
-void FPDMissionGraphEditor::DeleteNodes() const
+void FFPDMissionGraphEditor::DeleteNodes() const
 {
 	const TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusGraphEditorPtr.Pin();
 	if (CurrentGraphEditor.IsValid() == false) { return; }
@@ -184,7 +179,7 @@ void FPDMissionGraphEditor::DeleteNodes() const
 	}
 }
 
-bool FPDMissionGraphEditor::CanDeleteNodes() const
+bool FFPDMissionGraphEditor::CanDeleteNodes() const
 {
 	// If any of the nodes can be deleted then we should allow deleting
 	const FGraphPanelSelectionSet SelectedNodes = GetSelectedNodes();
@@ -198,18 +193,18 @@ bool FPDMissionGraphEditor::CanDeleteNodes() const
 	return false;
 }
 
-void FPDMissionGraphEditor::SearchMissionTree() const
+void FFPDMissionGraphEditor::SearchMissionTree() const
 {
 	TabManager->TryInvokeTab(FPDMissionEditorTabs::SearchID);
 	SearchResults->FocusOnSearch();
 }
 
-bool FPDMissionGraphEditor::CanSearchMissionTree() const
+bool FFPDMissionGraphEditor::CanSearchMissionTree() const
 {
 	return true;
 }
 
-void FPDMissionGraphEditor::DeleteSelectedDuplicatableNodes()
+void FFPDMissionGraphEditor::DeleteSelectedDuplicatableNodes()
 {
 	const TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusGraphEditorPtr.Pin();
 	if (CurrentGraphEditor.IsValid() == false) { return; }
@@ -238,18 +233,18 @@ void FPDMissionGraphEditor::DeleteSelectedDuplicatableNodes()
 	}
 }
 
-void FPDMissionGraphEditor::CutNodes()
+void FFPDMissionGraphEditor::CutNodes()
 {
 	CopyNodes();
 	DeleteSelectedDuplicatableNodes();
 }
 
-bool FPDMissionGraphEditor::CanCutNodes() const
+bool FFPDMissionGraphEditor::CanCutNodes() const
 {
 	return CanCopyNodes() && CanDeleteNodes();
 }
 
-void FPDMissionGraphEditor::CopyNodes() const
+void FFPDMissionGraphEditor::CopyNodes() const
 {
 	// Export the selected nodes and place the text on the clipboard
 	FGraphPanelSelectionSet SelectedNodes = GetSelectedNodes();
@@ -261,7 +256,7 @@ void FPDMissionGraphEditor::CopyNodes() const
 	for (FGraphPanelSelectionSet::TIterator SelectedIter(SelectedNodes); SelectedIter; ++SelectedIter)
 	{
 		UEdGraphNode* Node = Cast<UEdGraphNode>(*SelectedIter);
-		UPDMissionGraphNode* AINode = Cast<UPDMissionGraphNode>(Node);
+		UPDMissionGraphNode* MissionGraphNode = Cast<UPDMissionGraphNode>(Node);
 		if (Node == nullptr)
 		{
 			SelectedIter.RemoveCurrent();
@@ -270,14 +265,14 @@ void FPDMissionGraphEditor::CopyNodes() const
 
 		Node->PrepareForCopying();
 
-		if (AINode == nullptr) { continue; }
+		if (MissionGraphNode == nullptr) { continue; }
 		
 		// append all sub-nodes for selection
-		AINode->CopySubNodeIndex = CopySubNodeIndex;
-		for (int32 Idx = 0; Idx < AINode->SubNodes.Num(); Idx++)
+		MissionGraphNode->CopySubNodeIndex = CopySubNodeIndex;
+		for (int32 Idx = 0; Idx < MissionGraphNode->SubNodes.Num(); Idx++)
 		{
-			AINode->SubNodes[Idx]->CopySubNodeIndex = CopySubNodeIndex;
-			SubNodes.Add(AINode->SubNodes[Idx]);
+			MissionGraphNode->SubNodes[Idx]->CopySubNodeIndex = CopySubNodeIndex;
+			SubNodes.Add(MissionGraphNode->SubNodes[Idx]);
 		}
 		CopySubNodeIndex++;
 	}
@@ -300,7 +295,7 @@ void FPDMissionGraphEditor::CopyNodes() const
 	}
 }
 
-bool FPDMissionGraphEditor::CanCopyNodes() const
+bool FFPDMissionGraphEditor::CanCopyNodes() const
 {
 	// If any of the nodes can be duplicated then we should allow copying
 	const FGraphPanelSelectionSet SelectedNodes = GetSelectedNodes();
@@ -314,7 +309,7 @@ bool FPDMissionGraphEditor::CanCopyNodes() const
 	return false;
 }
 
-void FPDMissionGraphEditor::PasteNodes()
+void FFPDMissionGraphEditor::PasteNodes()
 {
 	const TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusGraphEditorPtr.Pin();
 	if (CurrentGraphEditor == nullptr) { return; }
@@ -322,7 +317,7 @@ void FPDMissionGraphEditor::PasteNodes()
 	PasteNodesAtLocation(CurrentGraphEditor->GetPasteLocation());
 }
 
-void FPDMissionGraphEditor::PasteNodesAtLocation(const FVector2D& Location)
+void FFPDMissionGraphEditor::PasteNodesAtLocation(const FVector2D& Location)
 {
 	TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusGraphEditorPtr.Pin();
 	if (CurrentGraphEditor.IsValid() == false) { return; }
@@ -397,63 +392,63 @@ void FPDMissionGraphEditor::PasteNodesAtLocation(const FVector2D& Location)
 	TMap<FGuid/*New*/, FGuid/*Old*/> NewToOldNodeMapping;
 
 	TMap<int32, UPDMissionGraphNode*> ParentMap;
+
+	// Skip sub-nodes
 	for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
 	{
 		UEdGraphNode* PasteNode = *It;
 		UPDMissionGraphNode* PasteMissionNode = Cast<UPDMissionGraphNode>(PasteNode);
+		
+		const bool bIsSubNode = (PasteMissionNode != nullptr && PasteMissionNode->IsSubNode());
+		if (PasteNode == nullptr || bIsSubNode) { return; }
+		
+		bPastedParentNode = true;
 
-		if (PasteNode && (PasteMissionNode == nullptr || PasteMissionNode->IsSubNode() == false))
-		{
-			bPastedParentNode = true;
+		// Select the newly pasted stuff
+		CurrentGraphEditor->SetNodeSelection(PasteNode, true);
 
-			// Select the newly pasted stuff
-			CurrentGraphEditor->SetNodeSelection(PasteNode, true);
+		const FVector::FReal NodePosX = (PasteNode->NodePosX - AvgNodePosition.X) + Location.X;
+		const FVector::FReal NodePosY = (PasteNode->NodePosY - AvgNodePosition.Y) + Location.Y;
 
-			const FVector::FReal NodePosX = (PasteNode->NodePosX - AvgNodePosition.X) + Location.X;
-			const FVector::FReal NodePosY = (PasteNode->NodePosY - AvgNodePosition.Y) + Location.Y;
-
-			PasteNode->NodePosX = static_cast<int32>(NodePosX);
-			PasteNode->NodePosY = static_cast<int32>(NodePosY);
-			PasteNode->SnapToGrid(16);
+		PasteNode->NodePosX = static_cast<int32>(NodePosX);
+		PasteNode->NodePosY = static_cast<int32>(NodePosY);
+		PasteNode->SnapToGrid(16);
 			
-			// Give new node a different Guid from the old one
-			const FGuid OldGuid = PasteNode->NodeGuid;
-			PasteNode->CreateNewGuid();
+		// Give new node a different Guid from the old one
+		const FGuid OldGuid = PasteNode->NodeGuid;
+		PasteNode->CreateNewGuid();
 
-			const FGuid NewGuid = PasteNode->NodeGuid;
-			NewToOldNodeMapping.Add(NewGuid, OldGuid);
+		const FGuid NewGuid = PasteNode->NodeGuid;
+		NewToOldNodeMapping.Add(NewGuid, OldGuid);
 
-			if (PasteMissionNode == nullptr) { continue; }
+		if (PasteMissionNode == nullptr) { continue; }
 			
-			PasteMissionNode->RemoveAllSubNodes();
-			ParentMap.Add(PasteMissionNode->CopySubNodeIndex, PasteMissionNode);
-		}
+		PasteMissionNode->RemoveAllSubNodes();
+		ParentMap.Add(PasteMissionNode->CopySubNodeIndex, PasteMissionNode);
 	}
 
+	// Iterate sub-nodes
 	for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
 	{
 		UPDMissionGraphNode* PasteNode = Cast<UPDMissionGraphNode>(*It);
-		if (PasteNode && PasteNode->IsSubNode())
+		if (PasteNode == nullptr || PasteNode->IsSubNode() == false) { continue; }
+
+		PasteNode->NodePosX = 0;
+		PasteNode->NodePosY = 0;
+
+		// remove sub-node from graph, it will be referenced from parent node
+		PasteNode->DestroyNode();
+
+		PasteNode->ParentNode = ParentMap.FindRef(PasteNode->CopySubNodeIndex);
+		if (PasteNode->ParentNode)
 		{
-			PasteNode->NodePosX = 0;
-			PasteNode->NodePosY = 0;
-
-			// remove sub-node from graph, it will be referenced from parent node
-			PasteNode->DestroyNode();
-
-			PasteNode->ParentNode = ParentMap.FindRef(PasteNode->CopySubNodeIndex);
-			if (PasteNode->ParentNode)
-			{
-				PasteNode->ParentNode->AddSubNode(PasteNode, EdGraph);
-				continue;
-			}
-			
-			if (bHasMultipleNodesSelected == false && bPastedParentNode == false && SelectedParent != nullptr)
-			{
-				PasteNode->ParentNode = SelectedParent;
-				SelectedParent->AddSubNode(PasteNode, EdGraph);
-			}
+			PasteNode->ParentNode->AddSubNode(PasteNode, EdGraph);
+			continue;
 		}
+			
+		if (bHasMultipleNodesSelected || bPastedParentNode || SelectedParent == nullptr) { continue; }
+		PasteNode->ParentNode = SelectedParent;
+		SelectedParent->AddSubNode(PasteNode, EdGraph);
 	}
 
 	FixupPastedNodes(PastedNodes, NewToOldNodeMapping);
@@ -474,22 +469,21 @@ void FPDMissionGraphEditor::PasteNodesAtLocation(const FVector2D& Location)
 	GraphOwner->MarkPackageDirty();
 }
 
-void FPDMissionGraphEditor::FixupPastedNodes(const TSet<UEdGraphNode*>& PastedGraphNodes, const TMap<FGuid/*New*/, FGuid/*Old*/>& NewToOldNodeMapping)
+void FFPDMissionGraphEditor::FixupPastedNodes(const TSet<UEdGraphNode*>& PastedGraphNodes, const TMap<FGuid/*New*/, FGuid/*Old*/>& NewToOldNodeMapping)
 {
 	// @todo
 }
 
-void FPDMissionGraphEditor::RegisterTabSpawners(const TSharedRef<FTabManager>& InTabManager)
+void FFPDMissionGraphEditor::RegisterTabSpawners(const TSharedRef<FTabManager>& InTabManager)
 {
 	FWorkflowCentricApplication::RegisterTabSpawners(InTabManager);
 }
 
-void FPDMissionGraphEditor::InitMissionEditor(const EToolkitMode::Type Mode, const TSharedPtr<IToolkitHost>& InitToolkitHost, const FPDMissionGraph_NodeData& InData)
+void FFPDMissionGraphEditor::InitMissionEditor(const EToolkitMode::Type Mode, const TSharedPtr<IToolkitHost>& InitToolkitHost, const FPDMissionNodeHandle& InData)
 {
 	MissionData = InData; // Root data to initialize the editor with
 
-
-	const TSharedPtr<FPDMissionGraphEditor> ThisPtr(SharedThis(this));
+	const TSharedPtr<FFPDMissionGraphEditor> ThisPtr(SharedThis(this));
 	if (!DocumentManager.IsValid())
 	{
 		DocumentManager = MakeShareable(new FDocumentTracker);
@@ -497,8 +491,11 @@ void FPDMissionGraphEditor::InitMissionEditor(const EToolkitMode::Type Mode, con
 
 		// Register the document factories
 		{
-			const TSharedRef<FDocumentTabFactory> GraphEditorFactory = MakeShareable(new FPDMissionGraphEditorFactory(ThisPtr,
-			                                                                                                          FPDMissionGraphEditorFactory::FOnCreateGraphEditorWidget::CreateSP(this, &FPDMissionGraphEditor::CreateGraphEditorWidget)
+			const TSharedRef<FDocumentTabFactory> GraphEditorFactory =
+				MakeShareable(new FPDMissionGraphEditorFactory(
+					ThisPtr,
+					FPDMissionGraphEditorFactory::FOnCreateGraphEditorWidget
+						::CreateSP(this, &FFPDMissionGraphEditor::CreateGraphEditorWidget)
 			));
 
 			// Also store off a reference to the graph-editor factory so we can find all the tabs spawned by it later.
@@ -510,6 +507,11 @@ void FPDMissionGraphEditor::InitMissionEditor(const EToolkitMode::Type Mode, con
 	TArray<UObject*> ObjectsToEdit;
 	const FString CtxtStr = FString::Printf(TEXT("FPDMissionGraphEditor::InitMissionEditor - RequestedRootData: %s"), *MissionData.DataTarget.RowName.ToString());
 	if(MissionData.DataTarget.GetRow<FPDMissionRow>(CtxtStr) != nullptr)
+	{
+		ObjectsToEdit.Add(const_cast<UDataTable*>(MissionData.DataTarget.DataTable.Get()));
+	}
+
+	if (ObjectsToEdit.IsEmpty())
 	{
 		ObjectsToEdit.Add(const_cast<UDataTable*>(MissionData.DataTarget.DataTable.Get()));
 	}
@@ -544,69 +546,135 @@ void FPDMissionGraphEditor::InitMissionEditor(const EToolkitMode::Type Mode, con
 	RegenerateMenusAndToolbars();
 }
 
-TSharedRef<FPDMissionGraphEditor> FPDMissionGraphEditor::CreateMissionEditor(const EToolkitMode::Type Mode,
-	const TSharedPtr<IToolkitHost>& InitToolkitHost, const FPDMissionGraph_NodeData& InData)
+void FFPDMissionGraphEditor::InitMissionEditor(const FPDMissionNodeHandle& InData)
 {
-	TSharedRef<FPDMissionGraphEditor> NewEditor(new FPDMissionGraphEditor());
+	MissionData = InData; // Root data to initialize the editor with
+
+	const TSharedPtr<FFPDMissionGraphEditor> ThisPtr(SharedThis(this));
+	if (DocumentManager.IsValid() == false) 
+	{
+		DocumentManager = MakeShareable(new FDocumentTracker);
+		DocumentManager->Initialize(ThisPtr);
+
+		// Register the document factories
+		{
+			const TSharedRef<FDocumentTabFactory> GraphEditorFactory =
+				MakeShareable(new FPDMissionGraphEditorFactory(
+					ThisPtr,
+					FPDMissionGraphEditorFactory::FOnCreateGraphEditorWidget
+						::CreateSP(this, &FFPDMissionGraphEditor::CreateGraphEditorWidget)
+			));
+			// Also store off a reference to the graph-editor factory so we can find all the tabs spawned by it later.
+			GraphEditorTabFactoryPtr = GraphEditorFactory;
+			DocumentManager->RegisterDocumentFactory(GraphEditorFactory);
+		}
+	}
+
+	TArray<UObject*> ObjectsToEdit;
+	const FString CtxtStr = FString::Printf(TEXT("FPDMissionGraphEditor::InitMissionEditor - RequestedRootData: %s"), *MissionData.DataTarget.RowName.ToString());
+	if(MissionData.DataTarget.GetRow<FPDMissionRow>(CtxtStr) != nullptr)
+	{
+		ObjectsToEdit.Add(const_cast<UDataTable*>(MissionData.DataTarget.DataTable.Get()));
+	}
+
+	if (ObjectsToEdit.IsEmpty())
+	{
+		ObjectsToEdit.Add(const_cast<UDataTable*>(MissionData.DataTarget.DataTable.Get()));
+	}
+
+	if (!ToolbarBuilder.IsValid())
+	{
+		ToolbarBuilder = MakeShareable(new FPDMissionEditorToolbar(SharedThis(this)));
+	}
+
+	FGraphEditorCommands::Register();
+	FPDMissionEditorCommands::Register();
+	
+	const TSharedRef<FTabManager::FLayout> DummyLayout = FTabManager::NewLayout("NullLayout")->AddArea(FTabManager::NewPrimaryArea());
+	constexpr bool bCreateDefaultStandaloneMenu = true;
+	constexpr bool bCreateDefaultToolbar = true;
+	InitAssetEditor(EToolkitMode::Type::Standalone, TSharedPtr<IToolkitHost>(), MissionEditorAppIdentifier, DummyLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, ObjectsToEdit );
+
+	BindCommands();
+	ExtendMenu();
+	CreateInternalWidgets();
+
+	AddApplicationMode(GraphViewMode, MakeShareable(new FMissionEditorApplicationMode_GraphView(SharedThis(this))));
+	SetCurrentMode(GraphViewMode);
+
+	OnClassListUpdated();
+	RegenerateMenusAndToolbars();	
+}
+
+TSharedRef<FFPDMissionGraphEditor> FFPDMissionGraphEditor::CreateMissionEditor(const EToolkitMode::Type Mode, const TSharedPtr<IToolkitHost>& InitToolkitHost, const FPDMissionNodeHandle& InData)
+{
+	TSharedRef<FFPDMissionGraphEditor> NewEditor(new FFPDMissionGraphEditor());
 	NewEditor->InitMissionEditor(Mode, InitToolkitHost, InData);
 	return NewEditor;
 }
 
-FName FPDMissionGraphEditor::GetToolkitFName() const
+TSharedRef<FFPDMissionGraphEditor> FFPDMissionGraphEditor::CreateMissionEditor(const FPDMissionNodeHandle& InData)
+{
+	TSharedRef<FFPDMissionGraphEditor> NewEditor(new FFPDMissionGraphEditor());
+	NewEditor->InitMissionEditor(InData);
+	return NewEditor;	
+}
+
+FName FFPDMissionGraphEditor::GetToolkitFName() const
 {
 	// @todo
 	return NAME_None;
 }
 
-FText FPDMissionGraphEditor::GetBaseToolkitName() const
+FText FFPDMissionGraphEditor::GetBaseToolkitName() const
 {
 	// @todo
 	return FText::GetEmpty();
 }
 
-FString FPDMissionGraphEditor::GetWorldCentricTabPrefix() const
+FString FFPDMissionGraphEditor::GetWorldCentricTabPrefix() const
 {
 	// @todo
 	return "";
 }
 
-FLinearColor FPDMissionGraphEditor::GetWorldCentricTabColorScale() const
+FLinearColor FFPDMissionGraphEditor::GetWorldCentricTabColorScale() const
 {
 	// @todo
 	return FLinearColor::Black;
 }
 
-FText FPDMissionGraphEditor::GetToolkitName() const
+FText FFPDMissionGraphEditor::GetToolkitName() const
 {
 	// @todo
 	return FWorkflowCentricApplication::GetToolkitName();
 }
 
-FText FPDMissionGraphEditor::GetToolkitToolTipText() const
+FText FFPDMissionGraphEditor::GetToolkitToolTipText() const
 {
 	// @todo
 	return FWorkflowCentricApplication::GetToolkitToolTipText();
 }
 
-void FPDMissionGraphEditor::FocusWindow(UObject* ObjectToFocusOn)
+void FFPDMissionGraphEditor::FocusWindow(UObject* ObjectToFocusOn)
 {
 	FWorkflowCentricApplication::FocusWindow(ObjectToFocusOn);
 }
 
-void FPDMissionGraphEditor::NotifyPostChange(const FPropertyChangedEvent& PropertyChangedEvent, FProperty* PropertyThatChanged)
+void FFPDMissionGraphEditor::NotifyPostChange(const FPropertyChangedEvent& PropertyChangedEvent, FProperty* PropertyThatChanged)
 {
 	// @todo
 	FNotifyHook::NotifyPostChange(PropertyChangedEvent, PropertyThatChanged);
 }
 
-void FPDMissionGraphEditor::OnNodeDoubleClicked(UEdGraphNode* Node)
+void FFPDMissionGraphEditor::OnNodeDoubleClicked(UEdGraphNode* Node)
 {
 	if (Node == nullptr || Node->CanJumpToDefinition() == false) { return; }
 	
 	Node->JumpToDefinition();
 }
 
-void FPDMissionGraphEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor)
+void FFPDMissionGraphEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor)
 {
 	if (FocusGraphEditorPtr.Pin() != InGraphEditor)
 	{
@@ -614,12 +682,11 @@ void FPDMissionGraphEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>&
 		FocusedGraphEditorChanged.Broadcast();
 	}
 
-	FGraphPanelSelectionSet CurrentSelection;
-	CurrentSelection = InGraphEditor->GetSelectedNodes();
+	const FGraphPanelSelectionSet CurrentSelection = InGraphEditor->GetSelectedNodes();
 	OnSelectedNodesChanged(CurrentSelection);	
 }
 
-void FPDMissionGraphEditor::OnNodeTitleCommitted(const FText& NewText, ETextCommit::Type CommitInfo, UEdGraphNode* NodeBeingChanged)
+void FFPDMissionGraphEditor::OnNodeTitleCommitted(const FText& NewText, ETextCommit::Type CommitInfo, UEdGraphNode* NodeBeingChanged)
 {
 	if (NodeBeingChanged == nullptr) { return; }
 	
@@ -628,7 +695,7 @@ void FPDMissionGraphEditor::OnNodeTitleCommitted(const FText& NewText, ETextComm
 	NodeBeingChanged->OnRenameNode(NewText.ToString());
 }
 
-FGraphAppearanceInfo FPDMissionGraphEditor::GetGraphAppearance() const
+FGraphAppearanceInfo FFPDMissionGraphEditor::GetGraphAppearance() const
 {
 	FGraphAppearanceInfo AppearanceInfo;
 	AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText", "MISSION");
@@ -638,23 +705,23 @@ FGraphAppearanceInfo FPDMissionGraphEditor::GetGraphAppearance() const
 	return AppearanceInfo;
 }
 
-bool FPDMissionGraphEditor::InEditingMode(bool bGraphIsEditable) const
+bool FFPDMissionGraphEditor::InEditingMode(bool bGraphIsEditable) const
 {
 	return bGraphIsEditable; // && FPDMissionDebugger::IsPIENotSimulating(); // @todo: debugger
 }
 
-EVisibility FPDMissionGraphEditor::GetDebuggerDetailsVisibility() const
+EVisibility FFPDMissionGraphEditor::GetDebuggerDetailsVisibility() const
 {
 	// @todo: debugger
 	return /* Debugger.IsValid() && Debugger->IsDebuggerRunning() ? EVisibility::Visible : */ EVisibility::Collapsed;
 }
 
-TWeakPtr<SGraphEditor> FPDMissionGraphEditor::GetFocusedGraphPtr() const
+TWeakPtr<SGraphEditor> FFPDMissionGraphEditor::GetFocusedGraphPtr() const
 {
 	return FocusGraphEditorPtr;
 }
 
-FText FPDMissionGraphEditor::GetLocalizedMode(FName InMode)
+FText FFPDMissionGraphEditor::GetLocalizedMode(FName InMode)
 {
 	static TMap< FName, FText > LocModes;
 	if (LocModes.Num() == 0)
@@ -670,13 +737,13 @@ FText FPDMissionGraphEditor::GetLocalizedMode(FName InMode)
 	return *OutDesc;
 }
 
-FPDMissionGraph_NodeData &FPDMissionGraphEditor::GetMissionData() const
+FPDMissionNodeHandle &FFPDMissionGraphEditor::GetMissionData() const
 {
 	// @todo
-	return const_cast<FPDMissionGraph_NodeData&>(MissionData);
+	return const_cast<FPDMissionNodeHandle&>(MissionData);
 }
 
-TSharedRef<SWidget> FPDMissionGraphEditor::SpawnProperties()
+TSharedRef<SWidget> FFPDMissionGraphEditor::SpawnProperties() const
 {
 	return
 		SNew(SVerticalBox)
@@ -688,29 +755,29 @@ TSharedRef<SWidget> FPDMissionGraphEditor::SpawnProperties()
 		];
 }
 
-TSharedRef<SWidget> FPDMissionGraphEditor::SpawnSearch()
+TSharedRef<SWidget> FFPDMissionGraphEditor::SpawnSearch()
 {
-	// SearchResults = SNew(SSearchInMission, SharedThis(this));  // @todo SSearchInMission
+	SearchResults = SNew(SSearchInMission, SharedThis(this)); 
 	return SearchResults.ToSharedRef();
 }
 
-TSharedRef<SWidget> FPDMissionGraphEditor::SpawnMissionTree()
+TSharedRef<SWidget> FFPDMissionGraphEditor::SpawnMissionTree()
 {
-	// TreeEditor = SNew(SMissionTreeEditor, SharedThis(this));  // @todo SMissionTreeEditor
+	TreeEditor = SNew(SMissionTreeEditor, SharedThis(this)); 
 	return TreeEditor.ToSharedRef();
 }
 
-void FPDMissionGraphEditor::RegisterToolbarTab(const TSharedRef<FTabManager>& InTabManager)
+void FFPDMissionGraphEditor::RegisterToolbarTab(const TSharedRef<FTabManager>& InTabManager)
 {
 	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 }
 
-void FPDMissionGraphEditor::RegenerateMissionGraph()
+void FFPDMissionGraphEditor::RegenerateMissionGraph()
 {
 	// @todo	
 }
 
-void FPDMissionGraphEditor::SaveEditedObjectState()
+void FFPDMissionGraphEditor::SaveEditedObjectState()
 {
 	// Clear currently edited documents
 	MissionData.LastEditedDocuments.Empty();
@@ -718,7 +785,7 @@ void FPDMissionGraphEditor::SaveEditedObjectState()
 	DocumentManager->SaveAllState();
 }
 
-bool FPDMissionGraphEditor::CanCreateNewMissionNodes() const
+bool FFPDMissionGraphEditor::CanCreateNewMissionNodes() const
 {
 	// @todo
 	return true;
@@ -732,14 +799,14 @@ public:
 	{
 	}
 
-	virtual bool IsStructAllowed(const FStructViewerInitializationOptions& InInitOptions, const UScriptStruct* InStruct, TSharedRef<FStructViewerFilterFuncs> InFilterFuncs) override
+	virtual bool IsStructAllowed(const FStructViewerInitializationOptions& InInitOptions, const UScriptStruct* InStruct, TSharedRef<FStructViewerFilterFuncs> InFilterFunctions) override
 	{
 		if (InStruct == nullptr) { return false; }
 		
 		return InStruct->IsChildOf(BaseClass);
 	}
 
-	virtual bool IsUnloadedStructAllowed(const FStructViewerInitializationOptions& InInitOptions, const FSoftObjectPath& InStructPath, TSharedRef<FStructViewerFilterFuncs> InFilterFuncs) override
+	virtual bool IsUnloadedStructAllowed(const FStructViewerInitializationOptions& InInitOptions, const FSoftObjectPath& InStructPath, TSharedRef<FStructViewerFilterFuncs> InFilterFunctions) override
 	{
 		return true;
 	}
@@ -748,52 +815,52 @@ private:
 	 UScriptStruct* BaseClass;
 };
 
-TSharedRef<SWidget> FPDMissionGraphEditor::HandleCreateNewStructMenu(UScriptStruct* BaseStruct) const
+TSharedRef<SWidget> FFPDMissionGraphEditor::HandleCreateNewStructMenu(UScriptStruct* BaseStruct) const
 {
 	FStructViewerInitializationOptions Options;
 	Options.bShowUnloadedStructs = true;
 	Options.StructFilter = MakeShareable(new FPDMissionNodeFilter(BaseStruct));
 
-	const FOnStructPicked OnPicked(FOnStructPicked::CreateSP(this, &FPDMissionGraphEditor::HandleNewNodeStructPicked));
+	const FOnStructPicked OnPicked(FOnStructPicked::CreateSP(this, &FFPDMissionGraphEditor::HandleNewNodeStructPicked));
 	return FModuleManager::LoadModuleChecked<FStructViewerModule>("StructViewer").CreateStructViewer(Options, OnPicked);
 }
 
-void FPDMissionGraphEditor::HandleNewNodeStructPicked(const UScriptStruct* BasesStruct) const
+void FFPDMissionGraphEditor::HandleNewNodeStructPicked(const UScriptStruct* BasesStruct) const
 {
 	// @todo
 }
 
 #define MMapDebugCommand(Token) \
 GraphEditorCommands->MapAction( FGraphEditorCommands::Get(). Token, \
-	FExecuteAction::CreateSP(&DebugHandler, &FPDMissionDebuggerHandler::On##Token##), \
-	FCanExecuteAction::CreateSP(&DebugHandler, &FPDMissionDebuggerHandler::Can##Token## ), \
+	FExecuteAction::CreateSP(&DebugHandler, &FPDMissionDebuggerHandler::On##Token ), \
+	FCanExecuteAction::CreateSP(&DebugHandler, &FPDMissionDebuggerHandler::Can##Token ), \
 	FIsActionChecked(), \
-	FIsActionButtonVisible::CreateSP(&DebugHandler, &FPDMissionDebuggerHandler::Can##Token## ) \
+	FIsActionButtonVisible::CreateSP(&DebugHandler, &FPDMissionDebuggerHandler::Can##Token ) \
 	);
 
-TSharedRef<SGraphEditor> FPDMissionGraphEditor::CreateGraphEditorWidget(UEdGraph* InGraph)
+TSharedRef<SGraphEditor> FFPDMissionGraphEditor::CreateGraphEditorWidget(UEdGraph* InGraph)
 {
 	check(InGraph != NULL);
 	
-	if (!GraphEditorCommands.IsValid())
+	if (GraphEditorCommands.IsValid() == false)
 	{
 		CreateCommandList();
 
-		// Debug actions
-		MMapDebugCommand(AddBreakpoint);
-		MMapDebugCommand(RemoveBreakpoint);
-		MMapDebugCommand(EnableBreakpoint);
-		MMapDebugCommand(DisableBreakpoint);
-		MMapDebugCommand(ToggleBreakpoint);
+		// // Debug actions, FPDMissionDebuggerHandler failing to create a valid ThisPtr @todo fix when it becomes relevant again
+		// MMapDebugCommand(AddBreakpoint);
+		// MMapDebugCommand(RemoveBreakpoint);
+		// MMapDebugCommand(EnableBreakpoint);
+		// MMapDebugCommand(DisableBreakpoint);
+		// MMapDebugCommand(ToggleBreakpoint);
 	}
 
 	SGraphEditor::FGraphEditorEvents InEvents;
-	InEvents.OnSelectionChanged = SGraphEditor::FOnSelectionChanged::CreateSP(this, &FPDMissionGraphEditor::OnSelectedNodesChanged);
-	InEvents.OnNodeDoubleClicked = FSingleNodeEvent::CreateSP(this, &FPDMissionGraphEditor::OnNodeDoubleClicked);
-	InEvents.OnTextCommitted = FOnNodeTextCommitted::CreateSP(this, &FPDMissionGraphEditor::OnNodeTitleCommitted);
+	InEvents.OnSelectionChanged = SGraphEditor::FOnSelectionChanged::CreateSP(this, &FFPDMissionGraphEditor::OnSelectedNodesChanged);
+	InEvents.OnNodeDoubleClicked = FSingleNodeEvent::CreateSP(this, &FFPDMissionGraphEditor::OnNodeDoubleClicked);
+	InEvents.OnTextCommitted = FOnNodeTextCommitted::CreateSP(this, &FFPDMissionGraphEditor::OnNodeTitleCommitted);
 
 	// Make title bar
-	TSharedRef<SWidget> TitleBarWidget = 
+	const TSharedRef<SWidget> TitleBarWidget = 
 		SNew(SBorder)
 		.BorderImage( FAppStyle::GetBrush( TEXT("Graph.TitleBackground") ) )
 		.HAlign(HAlign_Fill)
@@ -804,7 +871,7 @@ TSharedRef<SGraphEditor> FPDMissionGraphEditor::CreateGraphEditorWidget(UEdGraph
 			.FillWidth(1.f)
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("ConversationGraphLabel", "Conversation Editor"))
+				.Text(LOCTEXT("MissionGraphLabel", "Mission Editor"))
 				.TextStyle( FAppStyle::Get(), TEXT("GraphBreadcrumbButtonText") )
 			]
 		];
@@ -813,37 +880,37 @@ TSharedRef<SGraphEditor> FPDMissionGraphEditor::CreateGraphEditorWidget(UEdGraph
 	const bool bGraphIsEditable = InGraph->bEditable;
 	return SNew(SGraphEditor)
 		.AdditionalCommands(GraphEditorCommands)
-		.IsEditable(this, &FPDMissionGraphEditor::InEditingMode, bGraphIsEditable)
-		.Appearance(this, &FPDMissionGraphEditor::GetGraphAppearance)
+		.IsEditable(this, &FFPDMissionGraphEditor::InEditingMode, bGraphIsEditable)
+		.Appearance(this, &FFPDMissionGraphEditor::GetGraphAppearance)
 		.TitleBar(TitleBarWidget)
 		.GraphToEdit(InGraph)
 		.GraphEvents(InEvents);
 }
 
-bool FPDMissionGraphEditor::IsPropertyEditable() const
+bool FFPDMissionGraphEditor::IsPropertyEditable() const
 {
 	if (bForceDisablePropertyEdit /* || FPDMissionDebugger::IsPIESimulating() */ )
 	{
 		return false;
 	}
 
-	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusGraphEditorPtr.Pin();
+	const TSharedPtr<SGraphEditor> FocusedGraphEd = FocusGraphEditorPtr.Pin();
 	return FocusedGraphEd.IsValid() && FocusedGraphEd->GetCurrentGraph() && FocusedGraphEd->GetCurrentGraph()->bEditable;
 }
 
-void FPDMissionGraphEditor::OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent)
+void FFPDMissionGraphEditor::OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent)
 {
-	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusGraphEditorPtr.Pin();
+	const TSharedPtr<SGraphEditor> FocusedGraphEd = FocusGraphEditorPtr.Pin();
 	if (FocusedGraphEd.IsValid() && FocusedGraphEd->GetCurrentGraph())
 	{
 		FocusedGraphEd->GetCurrentGraph()->GetSchema()->ForceVisualizationCacheClear();
 	}
 
 	// @todo: Review/remove/move
-	// FPDMissionBuilder::RebuildBank(MissionData);
+	// FPDMissionBuilder::RebuildData(MissionData);
 }
 
-void FPDMissionGraphEditor::CreateInternalWidgets()
+void FFPDMissionGraphEditor::CreateInternalWidgets()
 {
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>( "PropertyEditor" );
 	FDetailsViewArgs DetailsViewArgs;
@@ -853,26 +920,24 @@ void FPDMissionGraphEditor::CreateInternalWidgets()
 	
 	DetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
 	DetailsView->SetObject( nullptr );
-	DetailsView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &FPDMissionGraphEditor::IsPropertyEditable));
-	DetailsView->OnFinishedChangingProperties().AddSP(this, &FPDMissionGraphEditor::OnFinishedChangingProperties);
-
-	//DetailsView->RegisterInstancedCustomPropertyTypeLayout(TEXT("ConversationNodeHandle"), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FConversationNodeReferenceCustomization::MakeInstance, TWeakPtr<FConversationEditor>(SharedThis(this))), nullptr);
+	DetailsView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &FFPDMissionGraphEditor::IsPropertyEditable));
+	DetailsView->OnFinishedChangingProperties().AddSP(this, &FFPDMissionGraphEditor::OnFinishedChangingProperties);
 }
 
-void FPDMissionGraphEditor::ExtendMenu()
+void FFPDMissionGraphEditor::ExtendMenu()
 {
 	// @todo
 }
 
-void FPDMissionGraphEditor::BindCommands()
+void FFPDMissionGraphEditor::BindCommands()
 {
 	ToolkitCommands->MapAction(FPDMissionEditorCommands::Get().SearchMissionTree,
-			FExecuteAction::CreateSP(this, &FPDMissionGraphEditor::SearchMissionTree),
-			FCanExecuteAction::CreateSP(this, &FPDMissionGraphEditor::CanSearchMissionTree)
+			FExecuteAction::CreateSP(this, &FFPDMissionGraphEditor::SearchMissionTree),
+			FCanExecuteAction::CreateSP(this, &FFPDMissionGraphEditor::CanSearchMissionTree)
 			);
 }
 
-bool FPDMissionGraphEditor::CanPasteNodes() const
+bool FFPDMissionGraphEditor::CanPasteNodes() const
 {
 	const TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusGraphEditorPtr.Pin();
 	if (CurrentGraphEditor.IsValid() == false) { return false; }
@@ -883,24 +948,24 @@ bool FPDMissionGraphEditor::CanPasteNodes() const
 	return FEdGraphUtilities::CanImportNodesFromText(CurrentGraphEditor->GetCurrentGraph(), ClipboardContent);
 }
 
-void FPDMissionGraphEditor::DuplicateNodes()
+void FFPDMissionGraphEditor::DuplicateNodes()
 {
 	CopyNodes();
 	PasteNodes();
 }
 
-bool FPDMissionGraphEditor::CanDuplicateNodes() const
+bool FFPDMissionGraphEditor::CanDuplicateNodes() const
 {
 	return CanCopyNodes();
 }
 
-bool FPDMissionGraphEditor::CanCreateComment() const
+bool FFPDMissionGraphEditor::CanCreateComment() const
 {
 	const TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusGraphEditorPtr.Pin();
  	return CurrentGraphEditor.IsValid() ? (CurrentGraphEditor->GetNumberOfSelectedNodes() != 0) : false;
 }
 
-void FPDMissionGraphEditor::CreateComment() const
+void FFPDMissionGraphEditor::CreateComment() const
 {
 	const TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusGraphEditorPtr.Pin();
 	UEdGraph* EdGraph = CurrentGraphEditor.IsValid() ? CurrentGraphEditor->GetCurrentGraph() : nullptr;
@@ -912,7 +977,7 @@ void FPDMissionGraphEditor::CreateComment() const
 	Action->PerformAction(EdGraph, nullptr, FVector2D());
 }
 
-void FPDMissionGraphEditor::OnClassListUpdated()
+void FFPDMissionGraphEditor::OnClassListUpdated()
 {
 	const TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusGraphEditorPtr.Pin();
 	if (CurrentGraphEditor.IsValid() == false) { return; }

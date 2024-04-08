@@ -31,12 +31,45 @@ class UEdGraphNode;
 namespace ESelectInfo { enum Type : int; }
 template <typename ItemType> class STreeView;
 
-class FPDMissionGraphEditor;
+class FFPDMissionGraphEditor;
 
 /** Item that matched the search results */
 class FMissionTreeNode : public TSharedFromThis<FMissionTreeNode>
 {
 public:
+	/** Create a BT node result */
+	FMissionTreeNode(UEdGraphNode* InNode, const TSharedPtr<const FMissionTreeNode>& InParent);
+
+	/** Called when user clicks on the search item */
+	FReply OnClick(const TWeakPtr<FFPDMissionGraphEditor>& MissionEditorPtr) const;
+
+	/** Create an icon to represent the result */
+	static TSharedRef<SWidget>	CreateIcon();
+
+	/** Gets the comment on this node if any */
+	FString GetCommentText() const;
+
+	/** Gets the node type */
+	FText GetNodeTypeText() const;
+
+	/** Gets the node title text */
+	FText GetText() const;
+
+	UEdGraphNode* GetGraphNode() const { return GraphNodePtr.Get(); }
+
+	const TArray< TSharedPtr<FMissionTreeNode> >& GetChildren() const;
+
+	/** Search result parent */
+	TWeakPtr<const FMissionTreeNode> ParentPtr;
+
+private:
+	mutable bool bChildrenDirty = true;
+
+	/** Any children listed under this mission node */
+	mutable TArray< TSharedPtr<FMissionTreeNode> > Children;
+
+	/** The graph node that this search result refers to */
+	TWeakObjectPtr<UEdGraphNode> GraphNodePtr;
 };
 
 /** */
@@ -45,5 +78,39 @@ class SMissionTreeEditor : public SCompoundWidget
 public:
 	SLATE_BEGIN_ARGS(SMissionTreeEditor){}
 	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, const TSharedPtr<class FFPDMissionGraphEditor>& InMissionEditor);
+
+private:
+	typedef STreeView<TSharedPtr<FMissionTreeNode>> STreeViewType;
+
+	/** Get the children of a row */
+	void OnGetChildren(TSharedPtr<FMissionTreeNode> InItem, TArray<TSharedPtr<FMissionTreeNode>>& OutChildren);
+
+	/** Called when user clicks on a new result */
+	void OnTreeSelectionChanged(TSharedPtr<FMissionTreeNode> Item, ESelectInfo::Type SelectInfo);
+
+	/** Called when a new row is being generated */
+	TSharedRef<ITableRow> OnGenerateRow(TSharedPtr<FMissionTreeNode> InItem, const TSharedRef<STableViewBase>& OwnerTable);
+
+	void OnFocusedGraphChanged();
+	void OnGraphChanged(const FEdGraphEditAction& Action);
+
+	/** Begins the search based on the SearchValue */
+	void RefreshTree();
+	void BuildTree();
+	
+private:
+	/** Pointer back to the mission editor that owns us */
+	TWeakPtr<class FFPDMissionGraphEditor> MissionEditorPtr;
+	
+	/** The tree view displays the results */
+	TSharedPtr<STreeViewType> TreeView;
+	
+	/** This buffer stores the currently displayed results */
+	TArray<TSharedPtr<FMissionTreeNode>> RootNodes;
+
+	/** The string to search for */
+	FString	SearchValue;
 	
 };

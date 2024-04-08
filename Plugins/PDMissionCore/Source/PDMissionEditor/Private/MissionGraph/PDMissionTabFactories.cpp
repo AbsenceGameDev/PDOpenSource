@@ -22,7 +22,7 @@
 */
 
 #include "MissionGraph/PDMissionTabFactories.h"
-#include "MissionGraph/PDMissionEditor.h"
+#include "..\..\Public\MissionGraph\FPDMissionEditor.h"
 
 #include "Engine/Blueprint.h"
 
@@ -34,7 +34,7 @@
 //////////////////////////////////////////////////////////////////////
 //
 
-FPDMissionDetailsFactory::FPDMissionDetailsFactory(TSharedPtr<FPDMissionGraphEditor> InMissionEditorPtr)
+FPDMissionDetailsFactory::FPDMissionDetailsFactory(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditorPtr)
 	: FWorkflowTabFactory(FPDMissionEditorTabs::GraphDetailsID, InMissionEditorPtr)
 	, MissionEditorPtr(InMissionEditorPtr)
 {
@@ -61,7 +61,7 @@ FText FPDMissionDetailsFactory::GetTabToolTipText(const FWorkflowTabSpawnInfo& I
 //////////////////////////////////////////////////////////////////////
 //
 
-FPDMissionSearchFactory::FPDMissionSearchFactory(TSharedPtr<FPDMissionGraphEditor> InMissionEditorPtr)
+FPDMissionSearchFactory::FPDMissionSearchFactory(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditorPtr)
 	: FWorkflowTabFactory(FPDMissionEditorTabs::SearchID, InMissionEditorPtr)
 	, MissionEditorPtr(InMissionEditorPtr)
 {
@@ -87,7 +87,7 @@ FText FPDMissionSearchFactory::GetTabToolTipText(const FWorkflowTabSpawnInfo& In
 //////////////////////////////////////////////////////////////////////
 //
 
-FPDMissionTreeEditorFactory::FPDMissionTreeEditorFactory(TSharedPtr<FPDMissionGraphEditor> InMissionEditorPtr)
+FPDMissionTreeEditorFactory::FPDMissionTreeEditorFactory(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditorPtr)
 	: FWorkflowTabFactory(FPDMissionEditorTabs::TreeEditorID, InMissionEditorPtr)
 	, MissionEditorPtr(InMissionEditorPtr)
 {
@@ -113,7 +113,7 @@ FText FPDMissionTreeEditorFactory::GetTabToolTipText(const FWorkflowTabSpawnInfo
 //////////////////////////////////////////////////////////////////////
 //
 
-FPDMissionGraphEditorFactory::FPDMissionGraphEditorFactory(TSharedPtr<FPDMissionGraphEditor> InMissionEditorPtr, FOnCreateGraphEditorWidget CreateGraphEditorWidgetCallback)
+FPDMissionGraphEditorFactory::FPDMissionGraphEditorFactory(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditorPtr, const FOnCreateGraphEditorWidget& CreateGraphEditorWidgetCallback)
 	: FDocumentTabFactoryForObjects<UEdGraph>(FPDMissionEditorTabs::GraphEditorID, InMissionEditorPtr)
 	, MissionEditorPtr(InMissionEditorPtr)
 	, OnCreateGraphEditorWidget(CreateGraphEditorWidgetCallback)
@@ -123,13 +123,13 @@ FPDMissionGraphEditorFactory::FPDMissionGraphEditorFactory(TSharedPtr<FPDMission
 void FPDMissionGraphEditorFactory::OnTabActivated(TSharedPtr<SDockTab> Tab) const
 {
 	check(MissionEditorPtr.IsValid());
-	TSharedRef<SGraphEditor> GraphEditor = StaticCastSharedRef<SGraphEditor>(Tab->GetContent());
+	const TSharedRef<SGraphEditor> GraphEditor = StaticCastSharedRef<SGraphEditor>(Tab->GetContent());
 	MissionEditorPtr.Pin()->OnGraphEditorFocused(GraphEditor);
 }
 
 void FPDMissionGraphEditorFactory::OnTabRefreshed(TSharedPtr<SDockTab> Tab) const
 {
-	TSharedRef<SGraphEditor> GraphEditor = StaticCastSharedRef<SGraphEditor>(Tab->GetContent());
+	const TSharedRef<SGraphEditor> GraphEditor = StaticCastSharedRef<SGraphEditor>(Tab->GetContent());
 	GraphEditor->NotifyGraphChanged();
 }
 
@@ -153,7 +153,7 @@ void FPDMissionGraphEditorFactory::SaveState(TSharedPtr<SDockTab> Tab, TSharedPt
 	check(MissionEditorPtr.IsValid());
 	check(MissionEditorPtr.Pin()->GetMissionData().DataTarget.DataTable);
 
-	TSharedRef<SGraphEditor> GraphEditor = StaticCastSharedRef<SGraphEditor>(Tab->GetContent());
+	const TSharedRef<SGraphEditor> GraphEditor = StaticCastSharedRef<SGraphEditor>(Tab->GetContent());
 
 	FVector2D ViewLocation;
 	float ZoomAmount;

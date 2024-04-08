@@ -22,13 +22,13 @@
 */
 
 #include "MissionGraph/PDMissionEditorModes.h"
-#include "MissionGraph/PDMissionEditor.h"
+#include "..\..\Public\MissionGraph\FPDMissionEditor.h"
 #include "PDMissionGraphTypes.h"
 #include "MissionGraph/PDMissionEditorToolbar.h"
 #include "MissionGraph/PDMissionTabFactories.h"
 
-FMissionEditorApplicationMode_GraphView::FMissionEditorApplicationMode_GraphView(TSharedPtr<FPDMissionGraphEditor> InMissionEditor)
-	: FApplicationMode(FPDMissionGraphEditor::GraphViewMode, FPDMissionGraphEditor::GetLocalizedMode)
+FMissionEditorApplicationMode_GraphView::FMissionEditorApplicationMode_GraphView(TSharedPtr<FFPDMissionGraphEditor> InMissionEditor)
+	: FApplicationMode(FFPDMissionGraphEditor::GraphViewMode, FFPDMissionGraphEditor::GetLocalizedMode)
 {
 	MissionEditor = InMissionEditor;
 
@@ -75,7 +75,7 @@ FMissionEditorApplicationMode_GraphView::FMissionEditorApplicationMode_GraphView
 void FMissionEditorApplicationMode_GraphView::RegisterTabFactories(TSharedPtr<FTabManager> InTabManager)
 {
 	check(MissionEditor.IsValid());
-	TSharedPtr<FPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
+	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
 	
 	MissionEditorPtr->RegisterToolbarTab(InTabManager.ToSharedRef());
 
@@ -90,7 +90,7 @@ void FMissionEditorApplicationMode_GraphView::PreDeactivateMode()
 	FApplicationMode::PreDeactivateMode();
 
 	check(MissionEditor.IsValid());
-	TSharedPtr<FPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
+	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
 	
 	MissionEditorPtr->SaveEditedObjectState();
 }
@@ -99,7 +99,7 @@ void FMissionEditorApplicationMode_GraphView::PostActivateMode()
 {
 	// Reopen any documents that were open when the blueprint was last saved
 	check(MissionEditor.IsValid());
-	TSharedPtr<FPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
+	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
 	MissionEditorPtr->RegenerateMissionGraph();
 
 	FApplicationMode::PostActivateMode();

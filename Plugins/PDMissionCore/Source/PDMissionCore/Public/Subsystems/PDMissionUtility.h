@@ -87,8 +87,11 @@ public:
 	
 // SETUP
 	/** @brief Called on creation to setup data */
-	void InitializeMissionSubsystem();                           
-	
+	void InitializeMissionSubsystem();
+
+	/** @brief Return a const reference to the set mission tables */
+	const TArray<UDataTable*>& GetAllTables() const;
+
 	/** @brief Increments a replicated actorID */
 	static int32 RequestNewActorID(int32& LatestCreatedActorID); 
 	
@@ -124,6 +127,10 @@ public:
 	/**< @brief Fast lookups. Associating rownames with rowhandles */
 	TMap<FName, FDataTableRowHandle> MissionLookupViaRowName {};
 	
+	/**< @brief Edition/version/revision comparison checks */
+	TMap<int32 /*Session unique TableID*/, int32 /*editversion*/> TableRevisions{};
+
+	TMap<int32, int32> LastComparisonTableRevisions;	
 protected:
 	/** @brief Datatable of row-type FPDMissionRow */
 	UPROPERTY(EditAnywhere, Category = "Mission Subsystem", Meta = (RequiredAssetDataTags="RowStructure=/Script/PDMissionCore.PDMissionRow"))
@@ -133,6 +140,7 @@ protected:
 	TMap<int32, FPDMissionTreeMap> BoundMissionEvents {};
 	
 private:
+	
 	FPDMissionMetadata DummyMetadata = {FText::GetEmpty(), FText::GetEmpty()};
 	friend class UPDMissionSubsystem;
 };

@@ -71,7 +71,7 @@ void UPDMissionGraph::UpdateData(int32 UpdateFlags)
 	}
 
 	// UDataTable* MissionTable = CastChecked<UDataTable>(GetOuter());
-	// FPDMissionCompiler::RebuildBank(MissionTable);
+	// FPDMissionBuilder::RebuildData(MissionTable);
 }
 
 void UPDMissionGraph::OnCreated()
@@ -136,7 +136,7 @@ void UpdateMissionGraphNodeErrorMessage(UPDMissionGraphNode& Node)
 	// Broke out setting error message in to own function so it can be reused when iterating nodes collection.
 	if (Node.NodeInstance)
 	{
-		Node.ErrorMessage = FPDMissionDataNodeHelper::GetDeprecationMessage(Node.NodeInstance->GetClass());
+		Node.ErrorMessage = ""; // @todo 
 
 		// Only check for node-specific errors if the node is not deprecated
 		if (Node.ErrorMessage.IsEmpty())
@@ -259,8 +259,7 @@ void UPDMissionGraph::RemoveOrphanedNodes()
 
 	// Obtain a list of all nodes actually in the asset and discard unused nodes
 	TArray<UObject*> AllInners;
-	const bool bIncludeNestedObjects = false;
-	GetObjectsWithOuter(GetOuter(), AllInners, bIncludeNestedObjects);
+	GetObjectsWithOuter(GetOuter(), AllInners, false);
 	for (auto InnerIt = AllInners.CreateConstIterator(); InnerIt; ++InnerIt)
 	{
 		UObject* TestObject = *InnerIt;
@@ -269,7 +268,7 @@ void UPDMissionGraph::RemoveOrphanedNodes()
 			OnNodeInstanceRemoved(TestObject);
 
 			TestObject->SetFlags(RF_Transient);
-			TestObject->Rename(NULL, GetTransientPackage(), REN_DontCreateRedirectors | REN_NonTransactional | REN_ForceNoResetLoaders);
+			TestObject->Rename(nullptr, GetTransientPackage(), REN_DontCreateRedirectors | REN_NonTransactional | REN_ForceNoResetLoaders);
 		}
 	}
 }

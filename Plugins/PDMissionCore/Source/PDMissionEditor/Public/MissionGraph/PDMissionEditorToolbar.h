@@ -25,7 +25,7 @@
 
 #include "Templates/SharedPointer.h"
 
-class FPDMissionGraphEditor;
+class FFPDMissionGraphEditor;
 class FPDMissionTreeEditor;
 class FExtender;
 class FToolBarBuilder;
@@ -33,7 +33,7 @@ class FToolBarBuilder;
 class FPDMissionEditorToolbar : public TSharedFromThis<FPDMissionEditorToolbar>
 {
 public:
-	FPDMissionEditorToolbar(TSharedPtr<FPDMissionGraphEditor> InMissionEditor)
+	FPDMissionEditorToolbar(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditor)
 		: MissionEditor(InMissionEditor) {}
 
 	// void AddDebuggerToolbar(TSharedPtr<FExtender> Extender); @todo : debugger
@@ -45,5 +45,5 @@ private:
 
 protected:
 	/** Pointer back to the blueprint editor tool that owns us */
-	TWeakPtr<FPDMissionGraphEditor> MissionEditor;
+	TWeakPtr<FFPDMissionGraphEditor> MissionEditor;
 };

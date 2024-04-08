@@ -26,6 +26,13 @@
 
 #include "Components/PDMissionTracker.h"
 
+void UPDMissionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+
+	Utility.InitializeMissionSubsystem();
+}
+
 void UPDMissionSubsystem::SetMission(int32 ActorID, const FPDMissionBase& PersistentDatum)
 {
 }

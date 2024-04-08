@@ -23,11 +23,11 @@
 
 #include "PDMissionEditorCommands.h"
 
-#define LOCTEXT_NAMESPACE "FPDMissionCoreModule"
+#define LOCTEXT_NAMESPACE "FPDMissionEditorModule"
 
 void FPDMissionEditorCommands::RegisterCommands()
 {
-	UI_COMMAND(OpenPluginWindow, "PDMissionCore", "Bring up PDMissionCore window", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(OpenPluginWindow, "PDProgressionEditor", "Bring up PDMissionCore window", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(SearchMissionTree, "Search", "Search this mission tree.", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control, EKeys::F));
 }
 

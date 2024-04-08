@@ -35,12 +35,15 @@
 /**
  * @brief 
  */
-UCLASS(Abstract, Blueprintable)
+UCLASS(Blueprintable)
 class PDMISSIONCORE_API UPDMissionSubsystem : public UEngineSubsystem
 {
 	GENERATED_BODY()
 
 public:
+
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	
 	UFUNCTION(BlueprintCallable)
 	void SetMission(int32 ActorID, const FPDMissionBase& PersistentDatum);
 

@@ -26,45 +26,45 @@
 #include "EdGraph/EdGraph.h" // IWYU pragma: keep
 #include "WorkflowOrientedApp/WorkflowUObjectDocuments.h"
 
-class FPDMissionGraphEditor;
+class FFPDMissionGraphEditor;
 class SGraphEditor;
 
-class FPDMissionGraphEditor;
+class FFPDMissionGraphEditor;
 
 struct FPDMissionDetailsFactory : public FWorkflowTabFactory
 {
 public:
-	FPDMissionDetailsFactory(TSharedPtr<FPDMissionGraphEditor> InMissionEditorPtr);
+	FPDMissionDetailsFactory(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditorPtr);
 
 	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
 	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override;
 
 protected:
-	TWeakPtr<FPDMissionGraphEditor> MissionEditorPtr;
+	TWeakPtr<FFPDMissionGraphEditor> MissionEditorPtr;
 };
 
 struct FPDMissionSearchFactory : public FWorkflowTabFactory
 {
 public:
-	FPDMissionSearchFactory(TSharedPtr<FPDMissionGraphEditor> InMissionEditorPtr);
+	FPDMissionSearchFactory(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditorPtr);
 
 	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
 	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override;
 
 protected:
-	TWeakPtr<FPDMissionGraphEditor> MissionEditorPtr;
+	TWeakPtr<FFPDMissionGraphEditor> MissionEditorPtr;
 };
 
 struct FPDMissionTreeEditorFactory : public FWorkflowTabFactory
 {
 public:
-	FPDMissionTreeEditorFactory(TSharedPtr<FPDMissionGraphEditor> InMissionEditorPtr);
+	FPDMissionTreeEditorFactory(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditorPtr);
 
 	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
 	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override;
 
 protected:
-	TWeakPtr<FPDMissionGraphEditor> MissionEditorPtr;
+	TWeakPtr<FFPDMissionGraphEditor> MissionEditorPtr;
 };
 
 struct FPDMissionGraphEditorFactory : public FDocumentTabFactoryForObjects<UEdGraph>
@@ -72,7 +72,7 @@ struct FPDMissionGraphEditorFactory : public FDocumentTabFactoryForObjects<UEdGr
 public:
 	DECLARE_DELEGATE_RetVal_OneParam(TSharedRef<SGraphEditor>, FOnCreateGraphEditorWidget, UEdGraph*);
 public:
-	FPDMissionGraphEditorFactory(TSharedPtr<FPDMissionGraphEditor> IMissionEditorPtr, FOnCreateGraphEditorWidget CreateGraphEditorWidgetCallback);
+	FPDMissionGraphEditorFactory(const TSharedPtr<FFPDMissionGraphEditor>& IMissionEditorPtr, const FOnCreateGraphEditorWidget& CreateGraphEditorWidgetCallback);
 
 	virtual void OnTabActivated(TSharedPtr<SDockTab> Tab) const override;
 	virtual void OnTabRefreshed(TSharedPtr<SDockTab> Tab) const override;
@@ -84,7 +84,7 @@ protected:
 	virtual void SaveState(TSharedPtr<SDockTab> Tab, TSharedPtr<FTabPayload> Payload) const override;
 
 protected:
-	TWeakPtr<FPDMissionGraphEditor> MissionEditorPtr;
+	TWeakPtr<FFPDMissionGraphEditor> MissionEditorPtr;
 	FOnCreateGraphEditorWidget OnCreateGraphEditorWidget;
 };
 

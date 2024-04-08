@@ -24,8 +24,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "HistoryManager.h"
 #include "Modules/ModuleManager.h"
 
+struct FPDMissionRow;
+class UPDMissionGraph;
+class FAssetTypeActions_Base;
 class FToolBarBuilder;
 class FMenuBuilder;
 
@@ -41,11 +45,36 @@ public:
 	void PluginButtonClicked();
 	
 private:
-
 	void RegisterMenus();
-
 	TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
 
+	/** @brief Copies a given table to a table constructed at editor time (the working set) */
+	void CopyMissionTable(const UDataTable* const TableToCopy, bool bAccumulateTables = false);
+	/** @brief Saves the working set to it's associated tables. @otod turn TabelToSaveIn into an optional parameter and make a slight adjustment in the function defintion */
+	void SaveToMissionTable(UDataTable* TableToSaveIn);
+	
+	/** @brief Marks an associated tablerow for removal */
+	bool RemoveFromEditingTable(const FName& RowNameToRemove);
+	/** @brief Edit row copy and mark as updated */
+	bool EditRowInEditingTable(const FName& RowNameToRemove, const FPDMissionRow& NewData);
+	/** @brief Add row copy and mark as updated, will be added to an associated table, if an associated table not available will be added to 'TableToSaveIn' */
+	void AddRowToEditingTable(const FName& RowNameToAdd, const FPDMissionRow& NewData);
+	/** @brief Finalize any changes which hasn't been saved */
+	void FinalizeRowChanges(UDataTable* TargetTable, const TArray<FName>& RowNames) const;
+
+	/** @brief Marks an associated tablerow for removal, marks table dirty and saves changes immediately */
+	bool RemoveFromEditingTable_MarkDirty(const FName& RowNameToRemove);
+	/** @brief Edit row copy and mark as updated, marks 'EditingTable' dirty and saves changes immediately */
+	bool EditRowInEditingTable_MarkDirty(const FName& RowNameToRemove, const FPDMissionRow& NewData);
+	/** @brief Add row copy and mark as updated, marks 'EditingTable' dirty and saves changes immediately  */
+	bool AddRowToEditingTable_MarkDirty(const FName& RowNameToAdd, const FPDMissionRow& NewData);
+	
 private:
+	bool bEditTableParity = true;
+	UPDMissionGraph* GraphObj = nullptr;
 	TSharedPtr<class FUICommandList> PluginCommands;
+	TArray<TSharedPtr<class FAssetTypeActions_Base>> ItemDataAssetTypeActions;
+
+	/** @brief When opening the graph, create a full copy of the table. That copy is what we should be editing, then upon saving we move the changes over to the correct tables */
+	UDataTable* EditingTable = nullptr; 
 };

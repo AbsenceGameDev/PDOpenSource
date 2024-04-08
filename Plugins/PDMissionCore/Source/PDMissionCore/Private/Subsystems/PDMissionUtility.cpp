@@ -143,6 +143,11 @@ void FPDMissionUtility::InitializeMissionSubsystem()
 	ProcessTablesForFastLookup();
 }
 
+const TArray<UDataTable*>& FPDMissionUtility::GetAllTables() const
+{
+	return MissionTables;
+}
+
 int32 FPDMissionUtility::RequestNewActorID(int32& LatestCreatedActorID)
 {
 	return ++LatestCreatedActorID;
@@ -176,24 +181,62 @@ void FPDMissionUtility::ProcessTablesForFastLookup()
 	FString fSuccessCounter = "Succeeded";
 #endif // UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 	
-	for (UDataTable* StatDataTable : MissionTables)
+	for (UDataTable* MissionTable : MissionTables)
 	{
-		const TMap<FName, uint8*>& AllItems = StatDataTable->GetRowMap();
+		if (MissionTable == nullptr) { return; }
+
+		const int32 CurrentID = MissionTable->GetUniqueID();
+		MissionTable->OnDataTableChanged().AddLambda
+		(
+			[&, CurrentID]()
+			{
+				TableRevisions.FindOrAdd(CurrentID)++;
+			}	
+		);
+
+		int32 MissionID = 0x0;
+		bool bPackageWasDirtied = false;
+		const TMap<FName, uint8*>& AllItems = MissionTable->GetRowMap();
+
+		if (AllItems.IsEmpty() == false)
+		{
+			MissionTable->MarkPackageDirty();
+		}
+		
 		for (TMap<FName, uint8*>::TConstIterator RowMapIter(AllItems.CreateConstIterator()); RowMapIter; ++RowMapIter)
 		{
-			const FPDMissionRow* TableRow = reinterpret_cast<FPDMissionRow*>(RowMapIter.Value());
+			FPDMissionRow* TableRow = reinterpret_cast<FPDMissionRow*>(RowMapIter.Value());
 			if (TableRow == nullptr) { continue; }
+
+			bPackageWasDirtied = true;
+
+			// modify the table entry
+			TableRow->Base.mID = ++MissionID;
+			TableRow->Base.ResolveMissionTypeTag();
+			MissionTable->HandleDataTableChanged(RowMapIter.Key());
 			
-			FDataTableRowHandle RowHandle = UPDMissionStatics::CreateRowHandle(StatDataTable, RowMapIter.Key());
+			UE_LOG(LogTemp, Warning, TEXT("TableRow->Base.MissionTag: %s"), *TableRow->Base.MissionBaseTag.ToString())
+			UE_LOG(LogTemp, Warning, TEXT("TableRow->Base.MissionCategory: %s"), *TableRow->Base.GetMissionTypeTag().ToString())
+			UE_LOG(LogTemp, Warning, TEXT("TableRow->Base.mID: %i"), TableRow->Base.mID)
+			
+			FDataTableRowHandle RowHandle = UPDMissionStatics::CreateRowHandle(MissionTable, RowMapIter.Key());
 			MissionLookup.Add(TableRow->Base.mID, RowHandle);
 			MissionTagToMIDLookup.Add(TableRow->Base.MissionBaseTag, TableRow->Base.mID);
 			MissionLookupViaRowName.Add(RowHandle.RowName, RowHandle);
 
-			
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 			SuccessCounter++;
 #endif // UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+		}
 
+		if (bPackageWasDirtied && MissionTable->MarkPackageDirty() == false)
+		{
+			UE_LOG(LogTemp, Error, TEXT("MissionTable->MarkPackageDirty() failed. in mission subsystem initialize codepath"))
+		}
+		if (bPackageWasDirtied)
+		{
+			MissionTable->PreEditChange(nullptr);
+			MissionTable->PostEditChange();	
 		}
 	}
 	
@@ -208,13 +251,14 @@ void FPDMissionUtility::ProcessTablesForFastLookup()
 			if (TableRow == nullptr) { continue; }
 			
 			FPDMissionRules& MissionRules = TableRow->ProgressRules;
-			TArray<FGameplayTag> StatTagList;
+			TArray<FGameplayTag> MissionTags;
+			// @todo
 
 		}
 	}
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	fSuccessCounter = FString{SuccessCounter != 0 ? "Succeeded" : "Failed"} + FString{" at creating stat lookup maps \n"};
+	fSuccessCounter = FString{SuccessCounter != 0 ? "Succeeded" : "Failed"} + FString{" at creating mission lookup maps \n"};
 	SuccessCounter = 0;
 #endif // UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 }

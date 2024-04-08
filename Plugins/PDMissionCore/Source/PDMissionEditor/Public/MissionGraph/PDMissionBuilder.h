@@ -23,27 +23,33 @@
 
 #pragma once
 
-#include "WorkflowOrientedApp/WorkflowTabManager.h"
-#include "WorkflowOrientedApp/ApplicationMode.h"
+#include "PDMissionGraphNode.h"
+#include "HAL/Platform.h"
 
-class FFPDMissionGraphEditor;
+class UPDMissionGraph;
+class FName;
+class FString;
+template <typename FuncType> class TFunctionRef;
 
-//////////////////////////////////////////////////////////////////////
-//
+class UEdGraphPin;
 
-/** Application mode for main mission editing mode */
-class FMissionEditorApplicationMode_GraphView : public FApplicationMode
+struct PDMISSIONEDITOR_API FPDMissionBuilder : public TSharedFromThis<FPDMissionBuilder>
 {
+	FPDMissionBuilder() {}
 public:
-	FMissionEditorApplicationMode_GraphView(TSharedPtr<FFPDMissionGraphEditor> InMissionEditor);
+	static int32 GetNumGraphs(const FPDMissionNodeHandle& NodeData);
+	static UPDMissionGraph* GetGraphFromBank(FPDMissionNodeHandle& NodeData, int32 Index);
+	static void RebuildData(FPDMissionNodeHandle& NodeData);
 
-	virtual void RegisterTabFactories(TSharedPtr<FTabManager> InTabManager) override;
-	virtual void PreDeactivateMode() override;
-	virtual void PostActivateMode() override;
+private:
 
-protected:
-	TWeakPtr<FFPDMissionGraphEditor> MissionEditor;
+	// Creates a new graph but does not add it
+	static UPDMissionGraph* CreateNewGraph(const FPDMissionNodeHandle& NodeData, FName GraphName);
 
-	// Set of spawnable tabs in behavior tree editing mode
-	FWorkflowAllowedTabSet MissionEditorTabFactories;
+	// Skips over knots.
+	static void ForeachConnectedOutgoingMissionNode(UEdGraphPin* Pin, TFunctionRef<void(UPDMissionGraphNode*)> Predicate);
 };
+
+#if UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_2
+#include "CoreMinimal.h"
+#endif

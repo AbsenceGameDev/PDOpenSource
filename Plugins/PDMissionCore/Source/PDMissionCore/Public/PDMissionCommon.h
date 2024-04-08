@@ -291,18 +291,18 @@ public:
 	void IterateStatusHandlers(const FGameplayTag& Tag, FPDFPDMissionModData& OutStatVariables);
 
 	/** @brief Flags that need to exist on the actor requesting this mission for it to be approved */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mission|Datum")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mission|Rules")
 	FPDMissionTagCompound MissionConditionHandler{};
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mission|Rules")
 	FPDMissionBranch NextMissionBranch;
 
 	/** @brief If we get the mission again after finishing it, are we allowed to retrigger it? */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mission|Rules")
 	TEnumAsByte<EPDMissionState> EStartState = EPDMissionState::EInactive; 
 	
 	/** @brief If we get the mission again after finishing it, are we allowed to retrigger it? */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mission|Rules")
 	uint8 bRepeatable : 1; 
 };
 
@@ -321,16 +321,16 @@ struct PDMISSIONCORE_API FPDMissionBase
 	const FGameplayTag& GetMissionTypeTag() { return MissionTypeTag; }
 
 	/** @brief mission tag, expected format 'Mission.<DirectParent>.<MissionBaseTag>' DirectParent should be the mission or type */	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mission|Data|Base")
 	FGameplayTag MissionBaseTag{};
 	
 	/** @brief mission ID (mID), generated from the mission tag */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = StatData)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mission|Data|Base")
 	int32 mID = 0x0;
 
 private:	
 	/** @brief Type/Category tag. Is the direct parent tag of the MissionBaseTag */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = StatData, Meta = (AllowPrivateAccess="true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mission|Data|Base", Meta = (AllowPrivateAccess="true"))
 	FGameplayTag MissionTypeTag{};
 };
 
@@ -343,19 +343,19 @@ struct PDMISSIONCORE_API FPDMissionRow : public FTableRowBase
 	GENERATED_BODY()
 	
 	/** @brief mission tag */	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mission|Data")
 	FPDMissionBase Base{};
 	
-	/** @brief Minimum/Maximum values for this stat */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
+	/** @brief tick settings for this mission */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mission|Data")
 	FPDMissionTickBehaviour TickSettings{};
 	
 	/** @brief Mission rules, what are the conditions to finish the mission, what are it's sub-objectives, what is the branching possibilities, etc */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mission|Data")
 	FPDMissionRules ProgressRules{};
 
 	/** @brief Metadata, Friendly Name & Description */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StatData)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mission|Data")
 	FPDMissionMetadata Metadata {};
 };
 

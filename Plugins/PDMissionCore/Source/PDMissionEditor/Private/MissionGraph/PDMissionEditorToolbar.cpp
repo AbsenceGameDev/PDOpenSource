@@ -27,7 +27,7 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #include "PDMissionCommon.h"
-#include "MissionGraph/PDMissionEditor.h"
+#include "..\..\Public\MissionGraph\FPDMissionEditor.h"
 
 
 #define LOCTEXT_NAMESPACE "MissionEditorToolbar"
@@ -50,8 +50,8 @@ public:
 	// SWidget interface
 	virtual FVector2D ComputeDesiredSize(float) const override
 	{
-		const float Height = 20.0f;
-		const float Thickness = 16.0f;
+		constexpr float Height = 20.0f;
+		constexpr float Thickness = 16.0f;
 		return FVector2D(Thickness, Height);
 	}
 	// End of SWidget interface
@@ -61,9 +61,9 @@ public:
 void FPDMissionEditorToolbar::AddMissionEditorToolbar(TSharedPtr<FExtender> Extender)
 {
 	check(MissionEditor.IsValid());
-	TSharedPtr<FPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
+	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
 
-	TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
+	const TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
 	ToolbarExtender->AddToolBarExtension("Asset", EExtensionHook::After, MissionEditorPtr->GetToolkitCommands(), FToolBarExtensionDelegate::CreateSP( this, &FPDMissionEditorToolbar::FillMissionEditorToolbar ));
 	MissionEditorPtr->AddToolbarExtender(ToolbarExtender);
 }
@@ -71,19 +71,19 @@ void FPDMissionEditorToolbar::AddMissionEditorToolbar(TSharedPtr<FExtender> Exte
 void FPDMissionEditorToolbar::FillMissionEditorToolbar(FToolBarBuilder& ToolbarBuilder)
 {
 	check(MissionEditor.IsValid());
-	TSharedPtr<FPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
+	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
 
-	if (MissionEditorPtr->DebugHandler.IsDebuggerReady() == false && MissionEditorPtr->GetCurrentMode() == FPDMissionGraphEditor::GraphViewMode)
+	if (MissionEditorPtr->DebugHandler.IsDebuggerReady() == false && MissionEditorPtr->GetCurrentMode() == FFPDMissionGraphEditor::GraphViewMode)
 	{
 		ToolbarBuilder.BeginSection("Mission");
 		{
 			ToolbarBuilder.AddComboButton(
 				FUIAction(
 					FExecuteAction(),
-					FCanExecuteAction::CreateSP(MissionEditorPtr.Get(), &FPDMissionGraphEditor::CanCreateNewMissionNodes),
+					FCanExecuteAction::CreateSP(MissionEditorPtr.Get(), &FFPDMissionGraphEditor::CanCreateNewMissionNodes),
 					FIsActionChecked()
 					), 
-				FOnGetContent::CreateSP(MissionEditorPtr.Get(), &FPDMissionGraphEditor::HandleCreateNewStructMenu, FPDMissionState::StaticStruct()),
+				FOnGetContent::CreateSP(MissionEditorPtr.Get(), &FFPDMissionGraphEditor::HandleCreateNewStructMenu, FPDMissionState::StaticStruct()),
 				LOCTEXT("NewMission_Label", "New Mission"),
 				LOCTEXT("NewMission_ToolTip", "Create a new mission node from a given mission state"),
 				FSlateIcon(FAppStyle::GetAppStyleSetName(), "BTEditor.Graph.NewDecorator")

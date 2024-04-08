@@ -34,6 +34,7 @@
 #include "ScopedTransaction.h"
 #include "BlueprintNodeHelpers.h"
 #include "GameplayTagContainer.h"
+#include "SGraphNodeKnot.h"
 
 #define LOCTEXT_NAMESPACE "MissionGraph"
 
@@ -54,11 +55,11 @@ void UPDMissionGraphNode::PostPlacedNewNode()
 {
 	// NodeInstance can be already spawned by paste operation, don't override it
 
-	UStruct* NodeStruct = ClassData.GetStruct(true);
+	const UStruct* NodeStruct = ClassData.GetStruct(true);
 	if (NodeStruct && (NodeInstance == nullptr))
 	{
-		UEdGraph* MyGraph = GetGraph();
-		UObject* GraphOwner = MyGraph ? MyGraph->GetOuter() : nullptr;
+		const UEdGraph* MyGraph = GetGraph();
+		const UObject* GraphOwner = MyGraph ? MyGraph->GetOuter() : nullptr;
 		if (GraphOwner)
 		{
 			// StructOnScopePropertyOwner = NewObject<UStruct>(GraphOwner, NodeStruct);
@@ -121,13 +122,13 @@ void UPDMissionGraphNode::ResetNodeOwner()
 {
 	if (NodeInstance)
 	{
-		UEdGraph* MyGraph = GetGraph();
+		const UEdGraph* MyGraph = GetGraph();
 		UObject* GraphOwner = MyGraph ? MyGraph->GetOuter() : nullptr;
 
-		NodeInstance->Rename(NULL, GraphOwner, REN_DontCreateRedirectors | REN_DoNotDirty);
+		NodeInstance->Rename(nullptr, GraphOwner, REN_DontCreateRedirectors | REN_DoNotDirty);
 		NodeInstance->ClearFlags(RF_Transient);
 
-		for (auto& SubNode : SubNodes)
+		for (const TObjectPtr<UPDMissionGraphNode>& SubNode : SubNodes)
 		{
 			SubNode->ResetNodeOwner();
 		}
@@ -163,7 +164,7 @@ FText UPDMissionGraphNode::GetTooltipText() const
 		{
 			if (NodeInstance->GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
 			{
-				FAssetData AssetData(NodeInstance->GetClass()->ClassGeneratedBy);
+				const FAssetData AssetData(NodeInstance->GetClass()->ClassGeneratedBy);
 				FString Description = AssetData.GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UBlueprint, BlueprintDescription));
 				if (!Description.IsEmpty())
 				{
@@ -293,7 +294,7 @@ FString DescribeProperty(const FProperty* Prop, const uint8* PropertyAddr)
 	}
 	else
 	{
-		Prop->ExportTextItem_Direct(ExportedStringValue, PropertyAddr, NULL, NULL, PPF_PropertyWindow, NULL);
+		Prop->ExportTextItem_Direct(ExportedStringValue, PropertyAddr, nullptr, nullptr, PPF_PropertyWindow, nullptr);
 	}
 
 	const bool bIsBool = Prop->IsA(FBoolProperty::StaticClass());
@@ -309,7 +310,7 @@ void UPDMissionGraphNode::FindDiffs(UEdGraphNode* OtherNode, FDiffResults& Resul
 {
 	Super::FindDiffs(OtherNode, Results);
 
-	if (UPDMissionGraphNode* OtherGraphNode = Cast<UPDMissionGraphNode>(OtherNode))
+	if (const UPDMissionGraphNode* OtherGraphNode = Cast<UPDMissionGraphNode>(OtherNode))
 	{
 		if (NodeInstance && OtherGraphNode->NodeInstance)
 		{
@@ -413,15 +414,16 @@ bool UPDMissionGraphNode::RefreshNodeClass()
 	bool bUpdated = false;
 	if (NodeInstance == nullptr)
 	{
-		if (FPDMissionDataNodeHelper::IsClassKnown(ClassData))
-		{
-			PostPlacedNewNode();
-			bUpdated = (NodeInstance != nullptr);
-		}
-		else
-		{
-			FPDMissionDataNodeHelper::AddUnknownClass(ClassData);
-		}
+		// @todo replace as FPDMissionDataNodeHelper was unneeded
+		// if (FPDMissionDataNodeHelper::IsClassKnown(ClassData))
+		// {
+		// 	PostPlacedNewNode();
+		// 	bUpdated = (NodeInstance != nullptr);
+		// }
+		// else
+		// {
+		// 	FPDMissionDataNodeHelper::AddUnknownClass(ClassData);
+		// }
 	}
 
 	return bUpdated;
@@ -445,7 +447,7 @@ void UPDMissionGraphNode::UpdateNodeDataFrom(UClass* InstanceClass, FPDMissionNo
 {
 	if (InstanceClass)
 	{
-		if (UBlueprint* BPOwner = Cast<UBlueprint>(InstanceClass->ClassGeneratedBy))
+		if (const UBlueprint* BPOwner = Cast<UBlueprint>(InstanceClass->ClassGeneratedBy))
 		{
 			UpdatedData = FPDMissionNodeData(BPOwner->GetName(), BPOwner->GetOutermost()->GetName(), InstanceClass->GetName(), InstanceClass);
 		}
@@ -455,7 +457,7 @@ void UPDMissionGraphNode::UpdateNodeDataFrom(UClass* InstanceClass, FPDMissionNo
 		}
 		else
 		{
-			UpdatedData = FPDMissionNodeData(InstanceClass, FPDMissionDataNodeHelper::GetDeprecationMessage(InstanceClass));
+			UpdatedData = FPDMissionNodeData(InstanceClass, "");
 		}
 	}
 }
@@ -469,4 +471,97 @@ bool UPDMissionGraphNode::HasErrors() const
 
 
 
+
+#define LOCTEXT_NAMESPACE "MissionGraph"
+
+static const char* PC_Wildcard = "wildcard";
+
+/////////////////////////////////////////////////////
+// UMissionGraphNode_Knot
+
+UPDMissionGraphNode_Knot::UPDMissionGraphNode_Knot(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	bCanRenameNode = true;
+}
+
+void UPDMissionGraphNode_Knot::AllocateDefaultPins()
+{
+	const FName InputPinName(TEXT("InputPin"));
+	const FName InputDataPin0_Name(TEXT("DataPin0"));
+	const FName OutputPinName(TEXT("OutputPin"));
+
+	CreatePin(EGPD_Input, PC_Wildcard, InputPinName)->bDefaultValueIsIgnored = true;
+	CreatePin(EGPD_Input, PC_Wildcard, InputDataPin0_Name);
+	CreatePin(EGPD_Output, PC_Wildcard, OutputPinName);
+}
+
+FText UPDMissionGraphNode_Knot::GetTooltipText() const
+{
+	//@TODO: Should pull the tooltip from the source pin
+	return LOCTEXT("KnotTooltip", "Reroute Node (reroutes wires)");
+}
+
+FText UPDMissionGraphNode_Knot::GetNodeTitle(ENodeTitleType::Type TitleType) const
+{
+	switch (TitleType)
+	{
+	case ENodeTitleType::EditableTitle:
+		return FText::FromString(NodeComment);
+	case ENodeTitleType::MenuTitle:
+		return LOCTEXT("KnotListTitle", "Add Reroute Node...");
+	
+	default:	
+	case ENodeTitleType::FullTitle:
+	case ENodeTitleType::ListView:
+	case ENodeTitleType::MAX_TitleTypes:
+		return LOCTEXT("KnotTitle", "Reroute Node");
+	}
+}
+
+bool UPDMissionGraphNode_Knot::ShouldOverridePinNames() const
+{
+	return true;
+}
+
+FText UPDMissionGraphNode_Knot::GetPinNameOverride(const UEdGraphPin& Pin) const
+{
+	// Keep the pin size tiny
+	return FText::GetEmpty();
+}
+
+void UPDMissionGraphNode_Knot::OnRenameNode(const FString& NewName)
+{
+	NodeComment = NewName;
+}
+
+bool UPDMissionGraphNode_Knot::CanSplitPin(const UEdGraphPin* Pin) const
+{
+	return false;
+}
+
+TSharedPtr<class INameValidatorInterface> UPDMissionGraphNode_Knot::MakeNameValidator() const
+{
+	// Comments can be duplicated, etc...
+	return MakeShareable(new FDummyNameValidator(EValidatorResult::Ok));
+}
+
+UEdGraphPin* UPDMissionGraphNode_Knot::GetPassThroughPin(const UEdGraphPin* FromPin) const
+{
+	if(FromPin && Pins.Contains(FromPin))
+	{
+		return FromPin == Pins[0] ? Pins[1] : Pins[0];
+	}
+
+	return nullptr;
+}
+
+TSharedPtr<SGraphNode> UPDMissionGraphNode_Knot::CreateVisualWidget()
+{
+	return SNew(SGraphNodeKnot, this);
+}
+
+/////////////////////////////////////////////////////
+
+#undef LOCTEXT_NAMESPACE
 

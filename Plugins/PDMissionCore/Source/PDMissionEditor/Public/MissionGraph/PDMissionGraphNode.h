@@ -28,6 +28,7 @@
 #include <UObject/ObjectMacros.h>
 #include <EdGraph/EdGraphNode.h>
 
+#include "PDMissionGraph.h"
 #include "PDMissionGraphTypes.h"
 
 #include "PDMissionGraphNode.generated.h"
@@ -112,7 +113,7 @@ class PDMISSIONEDITOR_API UPDMissionGraphNode : public UEdGraphNode
 	virtual int32 FindSubNodeDropIndex(UPDMissionGraphNode* SubNode) const;
 	virtual void InsertSubNodeAt(UPDMissionGraphNode* SubNode, int32 DropIndex);
 
-	/** check if node is subnode */
+	/** check if node is sub-node */
 	virtual bool IsSubNode() const;
 
 	/** initialize instance object  */
@@ -136,9 +137,137 @@ class PDMISSIONEDITOR_API UPDMissionGraphNode : public UEdGraphNode
 	/** check if node has any errors, used for assigning colors on graph */
 	virtual bool HasErrors() const;
 
+	virtual bool CanPlaceBreakpoints() const { return false; }
+	
 	static void UpdateNodeDataFrom(UClass* InstanceClass, FPDMissionNodeData& UpdatedData);
 
 protected:
 
 	virtual void ResetNodeOwner();
+};
+
+
+/** Root node of this mission block */
+UCLASS()
+class PDMISSIONEDITOR_API UPDMissionGraphNode_EntryPoint : public UPDMissionGraphNode
+{
+	GENERATED_BODY()
+	UPDMissionGraphNode_EntryPoint(const FObjectInitializer& ObjectInitializer)
+		: Super(ObjectInitializer)
+	{
+		bIsSubNode = false;
+	}
+	
+	virtual void AllocateDefaultPins() override
+	{
+		// No pins for requirements
+		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
+	}
+	
+	virtual FLinearColor GetNodeBodyTintColor() const override
+	{
+		return MissionTreeColors::NodeBody::Default;
+	}
+};
+
+
+UCLASS()
+class PDMISSIONEDITOR_API UPDMissionGraphNode_MainQuest : public UPDMissionGraphNode
+{
+	GENERATED_BODY()
+	UPDMissionGraphNode_MainQuest(const FObjectInitializer& ObjectInitializer)
+		: Super(ObjectInitializer)
+	{
+		bIsSubNode = false;
+	}
+
+	virtual void AllocateDefaultPins() override
+	{
+		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("In"));
+		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
+	}
+	
+	virtual FLinearColor GetNodeBodyTintColor() const override
+	{
+		return MissionTreeColors::NodeBody::Default;
+	}
+};
+
+UCLASS()
+class PDMISSIONEDITOR_API UPDMissionGraphNode_SideQuest : public UPDMissionGraphNode
+{
+	GENERATED_BODY()
+	UPDMissionGraphNode_SideQuest(const FObjectInitializer& ObjectInitializer)
+		: Super(ObjectInitializer)
+	{
+		bIsSubNode = false;
+	}
+
+	virtual void AllocateDefaultPins() override
+	{
+		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("In"));
+		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
+	}
+	
+	virtual FLinearColor GetNodeBodyTintColor() const override
+	{
+		return MissionTreeColors::NodeBody::Default;
+	}
+};
+
+
+UCLASS()
+class PDMISSIONEDITOR_API UPDMissionGraphNode_EventQuest : public UPDMissionGraphNode
+{
+	GENERATED_BODY()
+	UPDMissionGraphNode_EventQuest(const FObjectInitializer& ObjectInitializer)
+		: Super(ObjectInitializer)
+	{
+		bIsSubNode = false;
+	}
+
+	virtual void AllocateDefaultPins() override
+	{
+		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("In"));
+		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
+	}
+	
+	virtual FLinearColor GetNodeBodyTintColor() const override
+	{
+		return MissionTreeColors::NodeBody::Default;
+	}
+};
+
+
+class SGraphNode;
+UCLASS(MinimalAPI)
+class UPDMissionGraphNode_Knot : public UEdGraphNode
+{
+	GENERATED_UCLASS_BODY()
+
+public:
+	// UEdGraphNode interface
+	virtual void AllocateDefaultPins() override;
+	virtual FText GetTooltipText() const override;
+	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
+	virtual bool ShouldOverridePinNames() const override;
+	virtual FText GetPinNameOverride(const UEdGraphPin& Pin) const override;
+	virtual void OnRenameNode(const FString& NewName) override;
+	virtual TSharedPtr<class INameValidatorInterface> MakeNameValidator() const override;
+	virtual bool CanSplitPin(const UEdGraphPin* Pin) const override;
+	virtual bool IsCompilerRelevant() const override { return false; }
+	virtual UEdGraphPin* GetPassThroughPin(const UEdGraphPin* FromPin) const override;
+	virtual TSharedPtr<SGraphNode> CreateVisualWidget() override;
+	virtual bool ShouldDrawNodeAsControlPointOnly(int32& OutInputPinIndex, int32& OutOutputPinIndex) const override { OutInputPinIndex = 0; OutOutputPinIndex = 1; return true; }
+	// End of UEdGraphNode interface
+	
+	UEdGraphPin* GetInputPin() const
+	{
+		return Pins[0];
+	}
+
+	UEdGraphPin* GetOutputPin() const
+	{
+		return Pins[1];
+	}
 };

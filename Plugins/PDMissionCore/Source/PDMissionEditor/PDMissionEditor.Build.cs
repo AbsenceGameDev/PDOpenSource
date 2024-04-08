@@ -39,7 +39,9 @@ public class PDMissionEditor : ModuleRules
 				"BlueprintGraph",
 				"GraphEditor",
 				"GameplayTags",
-
+				"Json",
+				"JsonUtilities",
+                    
 				"Projects",
 				"InputCore",
 				"EditorFramework",
