@@ -144,6 +144,9 @@ class PDMISSIONEDITOR_API UPDMissionGraphNode : public UEdGraphNode
 protected:
 
 	virtual void ResetNodeOwner();
+
+
+	void CreateMissionPin();
 };
 
 
@@ -160,6 +163,9 @@ class PDMISSIONEDITOR_API UPDMissionGraphNode_EntryPoint : public UPDMissionGrap
 	
 	virtual void AllocateDefaultPins() override
 	{
+		// Custom pins (Input)
+		CreateMissionPin(); // @todo when set, generate the mission/questline in the graph using this node as its root
+		
 		// No pins for requirements
 		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
 	}
@@ -183,7 +189,13 @@ class PDMISSIONEDITOR_API UPDMissionGraphNode_MainQuest : public UPDMissionGraph
 
 	virtual void AllocateDefaultPins() override
 	{
+		// Simple pins (Input)
 		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("In"));
+		
+		// Custom pins (Input)
+		CreateMissionPin();
+
+		// Simple pins (Output)		
 		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
 	}
 	
@@ -205,7 +217,13 @@ class PDMISSIONEDITOR_API UPDMissionGraphNode_SideQuest : public UPDMissionGraph
 
 	virtual void AllocateDefaultPins() override
 	{
+		// Simple pins (Input)
 		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("In"));
+
+		// Custom pins (Input)
+		CreateMissionPin();
+
+		// Simple pins (Output)
 		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
 	}
 	
@@ -228,7 +246,13 @@ class PDMISSIONEDITOR_API UPDMissionGraphNode_EventQuest : public UPDMissionGrap
 
 	virtual void AllocateDefaultPins() override
 	{
+		// Simple pins (Input)
 		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("In"));
+
+		// Custom pins (Input)
+		CreateMissionPin();
+
+		// Simple pins (Output)
 		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
 	}
 	

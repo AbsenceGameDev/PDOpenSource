@@ -28,7 +28,6 @@
 #include "PDMissionEditorStyle.h"
 #include "PDMissionEditorCommands.h"
 #include "AssetTypeActions_Base.h"
-#include "JsonObjectConverter.h"
 #include "PDMissionCommon.h"
 #include "PDMissionGraphTypes.h"
 #include "Widgets/Docking/SDockTab.h"
@@ -40,6 +39,7 @@
 #include "MissionGraph/FPDMissionEditor.h"
 #include "MissionGraph/PDMissionGraph.h"
 #include "MissionGraph/PDMissionGraphSchema.h"
+#include "MissionGraph/Slate/PDMissionView.h"
 #include "Subsystems/PDMissionSubsystem.h"
 #include "WorkflowOrientedApp/WorkflowTabFactory.h"
 
@@ -49,6 +49,15 @@ static const FName PDMissionEditorTabName("PDMissionEditor");
 
 void FPDMissionEditorModule::StartupModule()
 {
+	//
+	//
+	// Register pinfactory for editor
+	TSharedPtr<FPDAttributeGraphPinFactory> AttributeGraphPinFactory = MakeShareable(new FPDAttributeGraphPinFactory());
+	FEdGraphUtilities::RegisterVisualPinFactory(AttributeGraphPinFactory);
+
+	
+	//
+	//
 	// This Asset action applies a new default editor of assets of type: UPDMissionDataTable
 	ItemDataAssetTypeActions.Add(MakeShared<FAssetTypeActions_MissionEditor>());
 	IAssetTools& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
@@ -59,9 +68,7 @@ void FPDMissionEditorModule::StartupModule()
 
 	FPDMissionEditorStyle::Initialize();
 	FPDMissionEditorStyle::ReloadTextures();
-
 	FPDMissionEditorCommands::Register();
-	
 	PluginCommands = MakeShareable(new FUICommandList);
 
 	PluginCommands->MapAction(
@@ -74,7 +81,6 @@ void FPDMissionEditorModule::StartupModule()
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(PDMissionEditorTabName, FOnSpawnTab::CreateRaw(this, &FPDMissionEditorModule::OnSpawnPluginTab))
 		.SetDisplayName(LOCTEXT("FPDMissionEditorTabTitle", "PDMissionEditor"))
 		.SetMenuType(ETabSpawnerMenuType::Enabled);
-	
 }
 
 void FPDMissionEditorModule::ShutdownModule()
@@ -97,10 +103,7 @@ void FPDMissionEditorModule::ShutdownModule()
 		}
 	}
 	ItemDataAssetTypeActions.Empty();
-
 	
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
 
 	UToolMenus::UnRegisterStartupCallback(this);
 	UToolMenus::UnregisterOwner(this);
@@ -205,7 +208,7 @@ TSharedRef<SDockTab> FPDMissionEditorModule::OnSpawnPluginTab(const FSpawnTabArg
 	}
 
 	const TWeakPtr<SGraphEditor> FocusedGraphEditor = MissionEditor->GetFocusedGraphPtr();
-	if (FocusedGraphEditor.IsValid())
+	if (FocusedGraphEditor.IsValid() && FocusedGraphEditor.Pin()->GetCurrentGraph() != nullptr)
 	{
 		GraphObj = Cast<UPDMissionGraph>(FocusedGraphEditor.Pin()->GetCurrentGraph());
 	}
@@ -227,9 +230,22 @@ TSharedRef<SDockTab> FPDMissionEditorModule::OnSpawnPluginTab(const FSpawnTabArg
 			SNew(SBox).HAlign(HAlign_Center).VAlign(VAlign_Center) [ SNew(STextBlock).Text(WidgetText) ]
 		];
 	}
+
+	if (EditingTable == nullptr) // && EditingTable->GetRowMap().Num() > 0)
+	{
+		EditingTable = GetIntermediaryEditingTable(true);
+	}
+
+	// Copy any data if necessary
+	if (EditingTable->GetRowMap().Num() >= 0)
+	{
+		for (const UDataTable* TableToCopy : MissionSubsystem->Utility.GetAllTables())
+		{
+			CopyMissionTable(TableToCopy, true);
+		}
+	}
 	
-	// Create the graph
-	GraphObj = NewObject<UPDMissionGraph>();
+	// Add schema to the graph and add the graph to the root
 	GraphObj->Schema = UPDMissionGraphSchema::StaticClass();
 	GraphObj->AddToRoot();
 
@@ -248,44 +264,20 @@ void FPDMissionEditorModule::CopyMissionTable(const UDataTable* const TableToCop
 
 
 	TArray<FName> RowNameArray = TableToCopy->GetRowNames();
-	TMap<FName, FString> OutJsonStrings;
-	OutJsonStrings.Reserve(RowNameArray.Num());
+	TMap<FName, const FPDMissionRow*> OutRows;
+	OutRows.Reserve(RowNameArray.Num());
 	
-	FString JsonString;
 	for (const FName& RowName : RowNameArray)
 	{
 		const FPDMissionRow* Row = TableToCopy->FindRow<FPDMissionRow>(RowName, "");
-		FJsonObjectConverter::UStructToJsonObjectString(FPDMissionRow::StaticStruct(), Row, JsonString);
-
-		OutJsonStrings.Emplace(RowName, JsonString);
+		if (Row == nullptr) { return; }
+		
+		OutRows.Emplace(RowName, Row);
 	}
-
-	auto ConstructNewTableInEditor = []() -> UDataTable*
-	{
-		FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-		
-		FString AssetBaseName = "EditTable";
-		FString PackageName = "/Game/__Mission/";
-		PackageName += AssetBaseName;
-		UPackage* Package = CreatePackage(*PackageName);
-
-		// Create an unreal material asset
-		UDataTableFactory* TableFactory = NewObject<UDataTableFactory>();
-		UDataTable* ConstructedTable = (UDataTable*)TableFactory->FactoryCreateNew(UDataTable::StaticClass(), Package, *AssetBaseName, RF_Standalone | RF_Public, nullptr, GWarn);
-
-		AssetRegistryModule.AssetCreated(ConstructedTable);
-		
-		Package->FullyLoad();
-		Package->SetDirtyFlag(true);
-		ConstructedTable->EmptyTable(); // clear the associative datatable, might have clutter from last 
-
-		return ConstructedTable;
-	}; 
-
-
+	
 	if (EditingTable == nullptr)
 	{
-		EditingTable = ConstructNewTableInEditor();
+		EditingTable = ConstructEditingTable();
 		EditingTable->AddToRoot(); // Keep GC from destroying it
 	}
 	else if (EditingTable->IsValidLowLevelFast() == false)
@@ -293,7 +285,7 @@ void FPDMissionEditorModule::CopyMissionTable(const UDataTable* const TableToCop
 		EditingTable->RemoveFromRoot(); // Allow GC to destroy it
 		EditingTable->BeginDestroy();
 
-		EditingTable = ConstructNewTableInEditor(); // reload new pointer to it
+		EditingTable = ConstructEditingTable(); // reload new pointer to it
 		EditingTable->AddToRoot(); // Keep GC from destroying the new pointer
 	}
 	else if (bAccumulateTables == false)
@@ -301,28 +293,24 @@ void FPDMissionEditorModule::CopyMissionTable(const UDataTable* const TableToCop
 		EditingTable->EmptyTable(); // clear the associative datatable, might have clutter from last 
 	}
 
-
-	if (OutJsonStrings.IsEmpty() == false)
+	if (OutRows.IsEmpty() == false)
 	{
 		EditingTable->MarkPackageDirty();
 	}	
 
-	// slow, replace with some batch operation or possibly accumulate above json string to be one single string instead of an array
-	for (const TPair<FName, FString>& RowNameJson : OutJsonStrings)
+	// Create/add the associative rows
+	for (const TPair<FName, const FPDMissionRow*>& RowNameRowData : OutRows)
 	{
-		FPDMissionRow MissionRow;
-		FJsonObjectConverter::JsonObjectStringToUStruct(JsonString, &MissionRow, 0, 0);
-		
 		FPDAssociativeMissionEditingRow AssociativeRow;
-		AssociativeRow.TargetRow.RowName = RowNameJson.Key;
 		AssociativeRow.TargetRow.DataTable = TableToCopy;
+		AssociativeRow.TargetRow.RowName = RowNameRowData.Key;
+		AssociativeRow.UpdateRowData = *RowNameRowData.Value; // Copy data, so states are properly represented in the graph
 		
-		AssociativeRow.UpdateRowData = MissionRow; // Copy data, so states are properly represented in the graph
-		EditingTable->AddRow(RowNameJson.Key, AssociativeRow);
-		EditingTable->HandleDataTableChanged(RowNameJson.Key);
+		EditingTable->AddRow(RowNameRowData.Key, AssociativeRow);
+		EditingTable->HandleDataTableChanged(RowNameRowData.Key);
 	}
 
-	if (OutJsonStrings.IsEmpty() == false)
+	if (OutRows.IsEmpty() == false)
 	{
 		// let the package update itself if necessary
 		EditingTable->PreEditChange(nullptr);
@@ -413,11 +401,12 @@ void FPDMissionEditorModule::SaveToMissionTable(UDataTable* TableToSaveIn)
 			RowsToAdd.Emplace(AssociatedRowName, Association->UpdateRowData);
 			continue;
 		}
-		
+
+		// Update existing rows that we are not removing
 		FPDMissionRow* TargetRowPtr = Association->TargetRow.GetRow<FPDMissionRow>("");
 		*TargetRowPtr = Association->UpdateRowData;
 	}
-
+	
 	for (const FName& RemoveName : RowsToRemove)
 	{
 		TableToSaveIn->RemoveRow(RemoveName);
@@ -466,6 +455,30 @@ bool FPDMissionEditorModule::AddRowToEditingTable_MarkDirty(const FName& RowName
 	return bMarkedDirty;
 }
 
+UDataTable* FPDMissionEditorModule::GetIntermediaryEditingTable(const bool bReconstruct)
+{
+	if (bReconstruct == false && EditingTable != nullptr)
+	{
+		return EditingTable;
+	}
+	
+	if (EditingTable == nullptr)
+	{
+		EditingTable = ConstructEditingTable();
+		EditingTable->AddToRoot(); // Keep GC from destroying it
+	}
+	else if (EditingTable->IsValidLowLevelFast() == false)
+	{
+		EditingTable->RemoveFromRoot(); // Allow GC to destroy it
+		EditingTable->BeginDestroy();
+		
+		EditingTable = ConstructEditingTable(); // reload new pointer to it
+		EditingTable->AddToRoot(); // Keep GC from destroying the new pointer
+	}
+	
+	return EditingTable;
+};
+
 void FPDMissionEditorModule::FinalizeRowChanges(UDataTable* TargetTable, const TArray<FName>& RowNames) const
 {
 	for (const FName& RowName : RowNames)
@@ -480,6 +493,26 @@ void FPDMissionEditorModule::PluginButtonClicked()
 	FGlobalTabmanager::Get()->TryInvokeTab(PDMissionEditorTabName);
 }
 
+UDataTable* FPDMissionEditorModule::ConstructEditingTable()
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		
+	// Construct a table from a package, or load one if one already exists in target path
+	FString AssetBaseName = "EditTable";
+	FString PackageName = "/Game/__Mission/";
+	PackageName += AssetBaseName;
+	UPackage* Package = CreatePackage(*PackageName);
+
+	UDataTable* ConstructedTable = NewObject<UDataTable>(Package, *AssetBaseName, RF_Standalone | RF_Public);
+	ConstructedTable->RowStruct = FPDAssociativeMissionEditingRow::StaticStruct();
+	
+	AssetRegistryModule.AssetCreated(ConstructedTable);
+	Package->FullyLoad();
+	Package->SetDirtyFlag(true);
+	ConstructedTable->EmptyTable(); // clear the associative datatable, might have clutter from last load if the packages was not created anew 
+
+	return ConstructedTable;
+} 
 void FPDMissionEditorModule::RegisterMenus()
 {
 	// Owner will be used for cleanup in call to UToolMenus::UnregisterOwner

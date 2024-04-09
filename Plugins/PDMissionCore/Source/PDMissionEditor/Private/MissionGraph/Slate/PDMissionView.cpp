@@ -26,10 +26,16 @@
 #include "MissionGraph/PDMissionGraph.h"
 #include "MissionGraph/PDMissionBuilder.h"
 #include "MissionGraph/PDMissionGraphNode.h"
+#include "MissionGraph/PDMissionGraphSchema.h"
 
-#include "EdGraph/EdGraphPin.h"
-#include "Framework/Views/TableViewMetadata.h"
-#include "Widgets/Views/STreeView.h"
+#include <EdGraph/EdGraphPin.h>
+#include <EdGraph/EdGraphSchema.h>
+#include <Framework/Views/TableViewMetadata.h>
+#include <Widgets/Input/STextComboBox.h>
+#include <Widgets/Views/STreeView.h>
+
+#include "PDMissionEditor.h"
+#include "Subsystems/PDMissionSubsystem.h"
 
 #define LOCTEXT_NAMESPACE "FMissionTreeNode"
 
@@ -237,12 +243,114 @@ void SMissionTreeEditor::OnGetChildren(TSharedPtr<FMissionTreeNode> InItem, TArr
 
 void SMissionTreeEditor::OnTreeSelectionChanged(TSharedPtr<FMissionTreeNode> Item, ESelectInfo::Type)
 {
-	if (Item.IsValid())
+	if (Item.IsValid() == false) { return; }
+
+	Item->OnClick(MissionEditorPtr);
+}
+
+
+void SPDAttributePin::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
+{
+	FillMissionList(true);
+	SGraphPin::Construct(SGraphPin::FArguments(), InGraphPinObj);
+}
+
+void SPDAttributePin::FillMissionList(bool bOverwrite)
+{
+	if (bOverwrite == false && MissionRowNameList.IsEmpty() == false)
 	{
-		Item->OnClick(MissionEditorPtr);
+		return;
+	}
+	
+	if (bOverwrite && MissionRowNameList.IsEmpty() == false)
+	{
+		MissionRowNameList.Empty();
+	}
+	
+	// PopulateMissionList
+
+	const UPDMissionSubsystem* MissionSubsystem = UPDMissionStatics::GetMissionSubsystem();
+	if (MissionSubsystem == nullptr) { return; }
+
+	TArray<FName> MissionRowNames;
+	MissionSubsystem->Utility.MissionLookupViaRowName.GenerateKeyArray(MissionRowNames);	
+
+	IndexToName.Empty();
+	IndexToName.FindOrAdd(
+	MissionRowNameList.Emplace(MakeShared<FString>("--New Mission Row--")));
+
+	for (const FName& MissionName : MissionRowNames)
+	{
+		const FPDMissionRow* MissionRow =MissionSubsystem->Utility.MissionLookupViaRowName.FindRef(MissionName).GetRow<FPDMissionRow>("");
+		FString BuildString = MissionRow->Base.MissionBaseTag.GetTagName().ToString() + " (" + MissionName.ToString() + ") ";
+		
+		MissionConcatList.Emplace(MakeShared<FString>(BuildString));
+		
+		IndexToName
+		.FindOrAdd(MissionRowNameList.Emplace(MakeShared<FString>(MissionName.ToString())))
+		= MissionName;
 	}
 }
 
-/////////////////////////////////////////////////////
+TSharedRef<SWidget>	SPDAttributePin::GetDefaultValueWidget()
+{
+	FillMissionList(false);
+	
+	return	SNew(STextComboBox) //note you can display any widget here
+		.OptionsSource(&MissionRowNameList) 
+		.OnSelectionChanged(this, &SPDAttributePin::OnAttributeSelected);
+		
+}
+void SPDAttributePin::OnAttributeSelected(TSharedPtr<FString> ItemSelected, ESelectInfo::Type SelectInfo)
+{
+	FName SelectedMissionRowName = IndexToName.FindRef(MissionRowNameList.Find(ItemSelected));
+
+	// Wants to create new mission,
+	if (SelectedMissionRowName == "--New Mission Row--")
+	{
+		// @todo 1. Add save button to the graph and the call the functions I wrote yesterday for saving/loading to and from the editing table
+		// @todo 2. We need a hidden pin which becomes visible when this option is set, one that lets us select a rowname and mission tag for hte mission entry we are creating
+		return;
+	}
+	
+	UDataTable* EditingTable = nullptr;
+	if (FModuleManager::Get().IsModuleLoaded("PDMissionEditor"))
+	{
+		FPDMissionEditorModule& PDMissionEditorModule = FModuleManager::GetModuleChecked<FPDMissionEditorModule>("PDMissionEditor");
+		EditingTable = PDMissionEditorModule.GetIntermediaryEditingTable(true);
+	}
+
+	if (EditingTable == nullptr)
+	{
+		return;
+	}
+	
+	FPDAssociativeMissionEditingRow* AssociativeRow = EditingTable->FindRow<FPDAssociativeMissionEditingRow>(SelectedMissionRowName, "");
+	if(AssociativeRow != nullptr)
+	{
+		// @todo represent the value of the found row as node input/output 
+	}
+	
+}
+
+FSlateColor SPDAttributePin::GetPinColor() const
+{
+	FSlateColor OutColour{FLinearColor::Green};
+	return OutColour;
+}
+
+TSharedPtr<SGraphPin> FPDAttributeGraphPinFactory::CreatePin(UEdGraphPin* InPin) const
+{
+	/* Check if pin is struct, and then check if that pin is of struct type we want customize */
+	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_MissionRow && InPin->PinType.PinSubCategoryObject == FPDMissionRow::StaticStruct()) 
+	{
+		return SNew(SPDAttributePin, InPin); //and return our customized pin widget ;).
+	}
+	return FGraphPanelPinFactory::CreatePin(InPin);
+}
+
 
 #undef LOCTEXT_NAMESPACE
+
+
+

@@ -54,26 +54,27 @@ const FName FPDMissionEditorTabs::TreeEditorID(TEXT("MissionEditor_Tree"));
 const FName FPDMissionEditorTabs::GraphEditorID(TEXT("Document"));
 
 
+const FName FPDMissionGraphTypes::PinCategory_MissionRow("MissionRow");
 const FName FPDMissionGraphTypes::PinCategory_MultipleNodes("MultipleNodes");
 const FName FPDMissionGraphTypes::PinCategory_SingleComposite("SingleComposite");
 const FName FPDMissionGraphTypes::PinCategory_SingleTask("SingleTask");
 const FName FPDMissionGraphTypes::PinCategory_SingleNode("SingleNode");
 
 
-FPDMissionNodeData::FPDMissionNodeData(UStruct* InStruct, const FString& InDeprecatedMessage) :
+FPDMissionNodeData::FPDMissionNodeData(UClass* InClass, const FString& InDeprecatedMessage) :
 	bIsHidden(0),
 	bHideParent(0),
-	Struct(InStruct),
+	Class(InClass),
 	DeprecatedMessage(InDeprecatedMessage)
 {
 	Category = GetCategory();
-	if (InStruct) { ClassName = InStruct->GetName(); }
+	if (InClass) { ClassName = InClass->GetName(); }
 }
 
-FPDMissionNodeData::FPDMissionNodeData(const FTopLevelAssetPath& InGeneratedClassPath, UStruct* InStruct) :
+FPDMissionNodeData::FPDMissionNodeData(const FTopLevelAssetPath& InGeneratedClassPath, UClass* InClass) :
 	bIsHidden(0),
 	bHideParent(0),
-	Struct(InStruct),
+	Class(InClass),
 	AssetName(InGeneratedClassPath.GetAssetName().ToString()),
 	GeneratedPackage(InGeneratedClassPath.GetPackageName().ToString()),
 	ClassName(InGeneratedClassPath.GetAssetName().ToString())
@@ -81,10 +82,10 @@ FPDMissionNodeData::FPDMissionNodeData(const FTopLevelAssetPath& InGeneratedClas
 	Category = GetCategory();
 }
 
-FPDMissionNodeData::FPDMissionNodeData(const FString& InAssetName, const FString& InGeneratedClassPackage, const FString& InClassName, UStruct* InStruct) :
+FPDMissionNodeData::FPDMissionNodeData(const FString& InAssetName, const FString& InGeneratedClassPackage, const FString& InClassName, UClass* InClass) :
 	bIsHidden(0),
 	bHideParent(0),
-	Struct(InStruct),
+	Class(InClass),
 	AssetName(InAssetName),
 	GeneratedPackage(InGeneratedClassPackage),
 	ClassName(InClassName)
@@ -100,7 +101,7 @@ FString FPDMissionNodeData::ToString() const
 		return ShortName;
 	}
 
-	const UStruct* MyClass = Struct.Get();
+	const UClass* MyClass = Class.Get();
 	if (MyClass)
 	{
 		FString ClassDesc = MyClass->GetName();
@@ -118,29 +119,29 @@ FString FPDMissionNodeData::ToString() const
 
 FString FPDMissionNodeData::GetDataEntryName() const
 {
-	return Struct.IsValid() ? Struct->GetName() : ClassName;
+	return Class.IsValid() ? Class->GetName() : ClassName;
 }
 
 FString FPDMissionNodeData::GetDisplayName() const
 {
-	return Struct.IsValid() ? Struct->GetMetaData(TEXT("DisplayName")) : FString();
+	return Class.IsValid() ? Class->GetMetaData(TEXT("DisplayName")) : FString();
 }
 
 FText FPDMissionNodeData::GetTooltip() const
 {
-	return Struct.IsValid() ? Struct->GetToolTipText() : FText::GetEmpty();
+	return Class.IsValid() ? Class->GetToolTipText() : FText::GetEmpty();
 }
 
 FText FPDMissionNodeData::GetCategory() const
 {
-	return Struct.IsValid() ? FObjectEditorUtils::GetCategoryText(Struct.Get()) : Category;
+	return Class.IsValid() ? FObjectEditorUtils::GetCategoryText(Class.Get()) : Category;
 }
 
 
-UStruct* FPDMissionNodeData::GetStruct(bool bSilent)
+UClass* FPDMissionNodeData::GetClass(bool bSilent)
 {
-	UStruct* RetStruct = Struct.Get();
-	if (RetStruct == nullptr && GeneratedPackage.Len())
+	UClass* RetClass = Class.Get();
+	if (RetClass == nullptr && GeneratedPackage.Len())
 	{
 		GWarn->BeginSlowTask(LOCTEXT("LoadPackage", "Loading Package..."), true);
 
@@ -149,10 +150,10 @@ UStruct* FPDMissionNodeData::GetStruct(bool bSilent)
 		{
 			Package->FullyLoad();
 
-			RetStruct = FindObject<UClass>(Package, *ClassName);
+			RetClass = FindObject<UClass>(Package, *ClassName);
 
 			GWarn->EndSlowTask();
-			Struct = RetStruct;
+			Class = RetClass;
 		}
 		else
 		{
@@ -168,8 +169,26 @@ UStruct* FPDMissionNodeData::GetStruct(bool bSilent)
 		}
 	}
 
-	return RetStruct;
+	return RetClass;
 }
+
+bool FPDMissionNodeData::operator==(const FPDMissionNodeData& Other) const
+{
+	return
+		bHideParent      == Other.bHideParent      &&
+		bIsHidden        == Other.bIsHidden        &&
+		Class.Get()      == Other.Class.Get()      &&
+		AssetName        == Other.AssetName        &&
+		GeneratedPackage == Other.GeneratedPackage &&
+		ClassName        == Other.ClassName        &&
+		Category.EqualTo(Other.Category)           &&
+		DeprecatedMessage == Other.DeprecatedMessage;
+}
+
+bool FPDMissionNodeData::operator!=(const FPDMissionNodeData& Other) const
+{
+	return (Other == *this) == false;
+}	
 
 void FPDMissionDebuggerHandler::BindDebuggerToolbarCommands()
 {

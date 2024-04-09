@@ -148,6 +148,22 @@ struct FMissionGraphSchemaAction_AutoArrange : public FEdGraphSchemaAction
 	//~ End FEdGraphSchemaAction Interface
 };
 
+struct FPDSplitNodeParams
+{
+	FPDSplitNodeParams(const bool bInTransient)
+		: SourceGraph(nullptr)
+		, bTransient(bInTransient)
+	{}
+
+	FPDSplitNodeParams(UEdGraph* InSourceGraph)
+		: SourceGraph(InSourceGraph)
+		, bTransient(false)
+	{}
+	
+	UEdGraph* SourceGraph;
+	bool bTransient;
+};
+
 UCLASS()
 class PDMISSIONEDITOR_API UPDMissionGraphSchema : public UEdGraphSchema
 {
@@ -186,7 +202,7 @@ public:
 	//~ End EdGraphSchema Interface
 
 protected:
-	void AddMissionNodeOptions(const FString& CategoryName, FGraphContextMenuBuilder& ContextMenuBuilder, const FPDMissionNodeHandle& NodeData, TSubclassOf<UPDMissionGraphNode> EditorNodeType) const;
+	void AddMissionNodeOptions(const FString& CategoryName, FGraphContextMenuBuilder& ContextMenuBuilder, const FPDMissionNodeHandle& NodeData) const;
 
 private:
 	// ID for checking dirty status of node titles against, increases whenever 

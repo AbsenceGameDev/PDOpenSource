@@ -58,20 +58,24 @@ struct PDMISSIONEDITOR_API FPDMissionNodeData
 	GENERATED_USTRUCT_BODY()
 
 	FPDMissionNodeData(): bIsHidden(0), bHideParent(0) {}
-	FPDMissionNodeData(UStruct* InStruct, const FString& InDeprecatedMessage);
-	FPDMissionNodeData(const FTopLevelAssetPath& InGeneratedClassPath, UStruct* InStruct);
-	FPDMissionNodeData(const FString& InAssetName, const FString& InGeneratedClassPackage, const FString& InClassName, UStruct* InStruct);
+	FPDMissionNodeData(UClass* InStruct, const FString& InDeprecatedMessage);
+	FPDMissionNodeData(const FTopLevelAssetPath& InGeneratedClassPath, UClass* InStruct);
+	FPDMissionNodeData(const FString& InAssetName, const FString& InGeneratedClassPackage, const FString& InClassName, UClass* InStruct);
 
 	FString ToString() const;
 	FString GetDataEntryName() const;
 	FText GetCategory() const;
 	FString GetDisplayName() const;
 	FText GetTooltip() const;
-	UStruct* GetStruct(bool bSilent = false);
+	UClass* GetClass(bool bSilent = false);
 
 	FORCEINLINE FString GetDeprecatedMessage() const { return DeprecatedMessage; }
 	FORCEINLINE FString GetPackageName() const { return GeneratedPackage; }
 
+	bool operator==(const FPDMissionNodeData& Other) const;
+	bool operator!=(const FPDMissionNodeData& Other) const;
+
+	
 	/** set when child class masked this one out (e.g. always use game specific class instead of engine one) */
 	uint32 bIsHidden : 1;
 
@@ -81,7 +85,7 @@ struct PDMISSIONEDITOR_API FPDMissionNodeData
 private:
 
 	/** pointer to ustruct */
-	TWeakObjectPtr<UStruct> Struct;
+	TWeakObjectPtr<UClass> Class;
 
 	/** path to structs owning asset if it's not loaded yet */
 	UPROPERTY()
@@ -176,6 +180,7 @@ struct PDMISSIONEDITOR_API FPDMissionGraphTypes
 {
 	GENERATED_USTRUCT_BODY()
 
+	static const FName PinCategory_MissionRow;
 	static const FName PinCategory_MultipleNodes;
 	static const FName PinCategory_SingleComposite;
 	static const FName PinCategory_SingleTask;

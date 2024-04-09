@@ -22,7 +22,10 @@
 */
 #pragma once
 
+// #include "SlateBasics.h"
+#include "SGraphPin.h"
 #include "BlueprintUtilities.h"
+#include "EdGraphUtilities.h"
 #include "Widgets/SCompoundWidget.h"
 
 class ITableRow;
@@ -113,4 +116,32 @@ private:
 	/** The string to search for */
 	FString	SearchValue;
 	
+};
+
+
+class SPDAttributePin : public SGraphPin
+{
+public:
+	SLATE_BEGIN_ARGS(SPDAttributePin) {}
+	SLATE_END_ARGS()
+
+public:
+	void Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj);
+
+	void FillMissionList(bool bOverwrite);
+	
+	//this override is used to display slate widget used for customization.
+	virtual TSharedRef<SWidget>	GetDefaultValueWidget() override;
+	void OnAttributeSelected(TSharedPtr<FString> ItemSelected, ESelectInfo::Type SelectInfo);
+	virtual FSlateColor GetPinColor() const override;
+private:
+	TArray<TSharedPtr<FString>> MissionConcatList;
+	TArray<TSharedPtr<FString>> MissionRowNameList;
+	TMap<int32, FName> IndexToName;
+};
+
+
+class FPDAttributeGraphPinFactory : public FGraphPanelPinFactory
+{
+	virtual TSharedPtr<class SGraphPin> CreatePin(class UEdGraphPin* InPin) const override;
 };

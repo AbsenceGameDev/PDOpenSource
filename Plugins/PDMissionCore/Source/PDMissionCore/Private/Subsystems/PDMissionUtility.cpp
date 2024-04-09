@@ -27,6 +27,9 @@
 
 #include <Curves/CurveFloat.h>
 
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "Factories/DataTableFactory.h"
+
 const FPDMissionMetadata& FPDMissionUtility::GetMetadataBase(const int32 mID) const
 {
 	FPDMissionRow* StatRow = GetDefaultBase(mID);

@@ -44,10 +44,6 @@ public:
 	/** This function will be bound to Command (by default it will bring up plugin window) */
 	void PluginButtonClicked();
 	
-private:
-	void RegisterMenus();
-	TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
-
 	/** @brief Copies a given table to a table constructed at editor time (the working set) */
 	void CopyMissionTable(const UDataTable* const TableToCopy, bool bAccumulateTables = false);
 	/** @brief Saves the working set to it's associated tables. @otod turn TabelToSaveIn into an optional parameter and make a slight adjustment in the function defintion */
@@ -68,13 +64,22 @@ private:
 	bool EditRowInEditingTable_MarkDirty(const FName& RowNameToRemove, const FPDMissionRow& NewData);
 	/** @brief Add row copy and mark as updated, marks 'EditingTable' dirty and saves changes immediately  */
 	bool AddRowToEditingTable_MarkDirty(const FName& RowNameToAdd, const FPDMissionRow& NewData);
+
+	UDataTable* GetIntermediaryEditingTable(const bool bReconstruct);
+
+	UDataTable* ConstructEditingTable();
 	
 private:
-	bool bEditTableParity = true;
+	
+	void RegisterMenus();
+	TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
+
+private:
 	UPDMissionGraph* GraphObj = nullptr;
 	TSharedPtr<class FUICommandList> PluginCommands;
 	TArray<TSharedPtr<class FAssetTypeActions_Base>> ItemDataAssetTypeActions;
 
 	/** @brief When opening the graph, create a full copy of the table. That copy is what we should be editing, then upon saving we move the changes over to the correct tables */
 	UDataTable* EditingTable = nullptr; 
+	bool bEditTableParity = true;
 };

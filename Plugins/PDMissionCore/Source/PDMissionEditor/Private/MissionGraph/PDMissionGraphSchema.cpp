@@ -514,82 +514,70 @@ void UPDMissionGraphSchema::CreateDefaultNodesForGraph(UEdGraph& Graph) const
 
 void UPDMissionGraphSchema::GetSubNodeClasses(int32 SubNodeFlags, TArray<FPDMissionNodeData>& ClassData, UClass*& GraphNodeClass) const
 {
-	TArray<FPDMissionNodeData> TempClassData;
-	switch (static_cast<EMissionGraphSubNodeType>(SubNodeFlags))
-	{
-	case EMissionGraphSubNodeType::MainQuest:
-		// @todo Gather row data, replace -> 
-		GraphNodeClass = UPDMissionGraphNode_MainQuest::StaticClass();
-		break;
-	case EMissionGraphSubNodeType::SideQuest:
-		// @todo Gather row data, replace -> 
-		GraphNodeClass = UPDMissionGraphNode_SideQuest::StaticClass();
-		break;
-	case EMissionGraphSubNodeType::EventQuest:
-		// @todo Gather row data, replace -> 
-		GraphNodeClass = UPDMissionGraphNode_EventQuest::StaticClass();
-		break;
-	default:
-		unimplemented();
-	}
-
-	for (FPDMissionNodeData& Class : TempClassData)
-	{
-		// // @todo fix after initial test
-		// bool bIsAllowed = false;
-		// // We check the name only first to test the allowed status without possibly loading a full uasset class from disk
-		// // If there is no package name, fallback to testing with a fully loaded class
-		// if (!Class.GetPackageName().IsEmpty())
-		// {
-		// 	bIsAllowed = FBlueprintActionDatabase::IsStructAllowed(FTopLevelAssetPath(FName(Class.GetPackageName()), FName(Class.GetDataEntryName())), FBlueprintActionDatabase::EPermissionsContext::Node);
-		// }
-		// else
-		// {
-		// 	bIsAllowed = FBlueprintActionDatabase::IsStructAllowed(Class.GetStruct(), FBlueprintActionDatabase::EPermissionsContext::Node);
-		// }
-		//
-		// if (bIsAllowed)
-		// {
-		// 	ClassData.Add(std::move(Class));
-		// }
-	}
+	// @todo. Make actual subnode classes, currenlty these are actually the main nodes
+	// TArray<FPDMissionNodeData> TempClassData;
+	// switch (static_cast<EMissionGraphSubNodeType>(SubNodeFlags))
+	// {
+	// case EMissionGraphSubNodeType::MainQuest:
+	// 	// @todo Gather row data, replace -> 
+	// 	GraphNodeClass = UPDMissionGraphNode_MainQuest::StaticClass();
+	// 	break;
+	// case EMissionGraphSubNodeType::SideQuest:
+	// 	// @todo Gather row data, replace -> 
+	// 	GraphNodeClass = UPDMissionGraphNode_SideQuest::StaticClass();
+	// 	break;
+	// case EMissionGraphSubNodeType::EventQuest:
+	// 	// @todo Gather row data, replace -> 
+	// 	GraphNodeClass = UPDMissionGraphNode_EventQuest::StaticClass();
+	// 	break;
+	// default:
+	// 	break;
+	// }
+	// ClassData.AddUnique(FPDMissionNodeData{FPDMissionRow::StaticStruct(), ""});
 }
 
-void UPDMissionGraphSchema::AddMissionNodeOptions(const FString& CategoryName, FGraphContextMenuBuilder& ContextMenuBuilder, const FPDMissionNodeHandle& NodeData, TSubclassOf<UPDMissionGraphNode> EditorNodeType) const
+void UPDMissionGraphSchema::AddMissionNodeOptions(const FString& CategoryName, FGraphContextMenuBuilder& ContextMenuBuilder, const FPDMissionNodeHandle& NodeData) const
 {
-	// // @todo fix after initial test
-	// FCategorizedGraphActionListBuilder ListBuilder(CategoryName);
-	//
-	// TArray<FPDMissionNodeData> NodeClasses;
-	// GetMissionClassCache().GatherClasses(RuntimeNodeType, /*out*/ NodeClasses);
-	//
-	// for (FPDMissionNodeData& NodeClass : NodeClasses)
-	// {
-	// 	bool bIsAllowed = false;
-	// 	// We check the name only first to test the allowed status without possibly loading a full uasset class from disk
-	// 	// If there is no package name, fallback to testing with a fully loaded class
-	// 	if (!NodeClass.GetPackageName().IsEmpty())
-	// 	{
-	// 		bIsAllowed = FBlueprintActionDatabase::IsClassAllowed(FTopLevelAssetPath(FName(NodeClass.GetPackageName()), FName(NodeClass.GetClassName())), FBlueprintActionDatabase::EPermissionsContext::Node);
-	// 	}
-	// 	else
-	// 	{
-	// 		bIsAllowed = FBlueprintActionDatabase::IsClassAllowed(NodeClass.GetClass(), FBlueprintActionDatabase::EPermissionsContext::Node);
-	// 	}
-	// 	
-	// 	if (bIsAllowed)
-	// 	{
-	// 		const FText NodeTypeName = FText::FromString(FName::NameToDisplayString(NodeClass.ToString(), false));
-	//
-	// 		TSharedPtr<FMissionSchemaAction_NewNode> AddOpAction = UAIGraphSchema::AddNewNodeAction(ListBuilder, NodeClass.GetCategory(), NodeTypeName, FText::GetEmpty());
-	//
-	// 		UPDMissionGraphNode* OpNode = NewObject<UPDMissionGraphNode>(ContextMenuBuilder.OwnerOfTemporaries, EditorNodeType);
-	// 		OpNode->ClassData = NodeClass;
-	// 		AddOpAction->NodeTemplate = OpNode;
-	// 	}
-	// }
-	//
-	// ContextMenuBuilder.Append(ListBuilder);
+	struct FPrivateNodeSelector // @todo move out of here later
+	{
+		static UClass* Op(UClass* TestClass)
+		{
+			if (TestClass->IsChildOf(UPDMissionGraphNode_MainQuest::StaticClass()))  { return UPDMissionGraphNode_MainQuest::StaticClass(); }
+			if (TestClass->IsChildOf(UPDMissionGraphNode_SideQuest::StaticClass()))  { return UPDMissionGraphNode_SideQuest::StaticClass(); }
+			if (TestClass->IsChildOf(UPDMissionGraphNode_EventQuest::StaticClass())) { return UPDMissionGraphNode_EventQuest::StaticClass(); }
+			if (TestClass->IsChildOf(UPDMissionGraphNode_Knot::StaticClass()))       { return UPDMissionGraphNode_Knot::StaticClass(); }
+			if (TestClass->IsChildOf(UPDMissionGraphNode_EntryPoint::StaticClass())) { return UPDMissionGraphNode_EntryPoint::StaticClass(); }
+			return UPDMissionGraphNode_EntryPoint::StaticClass(); // fallback
+		}
+	};
+	
+	// @todo fix after initial test
+	FCategorizedGraphActionListBuilder ListBuilder(CategoryName);
+	
+	TMap<UClass*, FPDMissionNodeData> NodeClasses;
+	// gather all native classes
+	for (TObjectIterator<UClass> It; It; ++It)
+	{
+		UClass* TestClass = *It;
+		if (TestClass->HasAnyClassFlags(CLASS_Native) && TestClass->IsChildOf(UPDMissionGraphNode::StaticClass()))
+		{
+			FPDMissionNodeData NodeClass(TestClass, "");
+			NodeClass.bHideParent = false;
+			NodeClass.bIsHidden = false;
+			NodeClasses.Emplace(FPrivateNodeSelector::Op(TestClass),NodeClass);
+		}
+	}
+
+	for (const TPair<UClass*, FPDMissionNodeData>& NodePair : NodeClasses)
+	{
+		const FText NodeTypeName = FText::FromString(FName::NameToDisplayString(NodePair.Value.ToString(), false));
+		TSharedPtr<FMissionSchemaAction_NewNode> AddOpAction = UPDMissionGraphSchema::AddNewNodeAction(ListBuilder, NodePair.Value.GetCategory(), NodeTypeName, FText::GetEmpty());
+		UPDMissionGraphNode* OpNode = NewObject<UPDMissionGraphNode>(ContextMenuBuilder.OwnerOfTemporaries, NodePair.Key);
+		OpNode->ClassData = NodePair.Value;
+		AddOpAction->NodeTemplate = OpNode;
+	}
+
+	ContextMenuBuilder.Append(ListBuilder);
 }
 
 void UPDMissionGraphSchema::GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const
@@ -604,7 +592,7 @@ void UPDMissionGraphSchema::GetGraphContextActions(FGraphContextMenuBuilder& Con
 	if (bNoParent || (ContextMenuBuilder.FromPin && (ContextMenuBuilder.FromPin->Direction == EGPD_Input)))
 	{
 		const FPDMissionNodeHandle DummyData; // @todo replace dummy with actual data
-		AddMissionNodeOptions(TEXT("Entry Point"), ContextMenuBuilder, DummyData,  UPDMissionGraphNode_EntryPoint::StaticClass());
+		AddMissionNodeOptions(TEXT("Entry Point"), ContextMenuBuilder, DummyData);
 	}
 
 	// @todo Use PinCategory
@@ -620,7 +608,6 @@ void UPDMissionGraphSchema::GetGraphContextActions(FGraphContextMenuBuilder& Con
 		ContextMenuBuilder.AddAction(Action4);
 	}
 }
-
 
 const FPinConnectionResponse UPDMissionGraphSchema::CanCreateConnection(const UEdGraphPin* PinA, const UEdGraphPin* PinB) const
 {
@@ -803,7 +790,6 @@ void UPDMissionGraphSchema::ForceVisualizationCacheClear() const
 	++CurrentCacheRefreshID;
 }
 
-//////////////////////////////////////////////////////////////////////
 
 #undef LOCTEXT_NAMESPACE
 
