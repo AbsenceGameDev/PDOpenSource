@@ -1,25 +1,4 @@
-﻿/*
- * @copyright Permafrost Development (MIT license) 
- * Authors: Ario Amin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- * 
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE. 
-*/
+﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
 #include "MissionGraph/PDMissionGraphSchema.h"
 #include "MissionGraph/PDMissionGraphNode.h"
@@ -43,6 +22,7 @@
 #include "ScopedTransaction.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "EdGraphNode_Comment.h"
+#include "Engine/UserDefinedStruct.h"
 #include "MissionGraph/PDMissionGraph.h"
 
 #define LOCTEXT_NAMESPACE "MissionGraph"
@@ -775,6 +755,215 @@ void UPDMissionGraphSchema::OnPinConnectionDoubleCicked(UEdGraphPin* PinA, UEdGr
 	}
 }
 
+
+
+
+bool UPDMissionGraphSchema::GetPropertyCategoryInfo(const FProperty* TestProperty, FName& OutCategory, FName& OutSubCategory, UObject*& OutSubCategoryObject, bool& bOutIsWeakPointer)
+{
+	if (const FStructProperty* StructProperty = CastField<const FStructProperty>(TestProperty))
+	{
+		OutCategory = FPDMissionGraphTypes::PinCategory_MissionRow;
+		OutSubCategoryObject = StructProperty->Struct;
+		// Match IsTypeCompatibleWithProperty and erase REINST_ structs here:
+		if(UUserDefinedStruct* UDS = Cast<UUserDefinedStruct>(StructProperty->Struct))
+		{
+			UUserDefinedStruct* RealStruct = UDS->PrimaryStruct.Get();
+			if(RealStruct != nullptr) { OutSubCategoryObject = RealStruct; }
+		}
+	}
+	else if (TestProperty->IsA<FFloatProperty>())
+	{
+		// @todo
+		// OutCategory = PC_Real;
+		// OutSubCategory = PC_Float;
+	}
+	else if (TestProperty->IsA<FDoubleProperty>())
+	{
+		// @todo
+		// OutCategory = PC_Real;
+		// OutSubCategory = PC_Double;
+	}
+	else if (TestProperty->IsA<FInt64Property>())
+	{
+		// @todo
+		// OutCategory = PC_Int64;
+	}
+	else if (TestProperty->IsA<FIntProperty>())
+	{
+		// @todo
+		// OutCategory = PC_Int;
+		//
+		// if (TestProperty->HasMetaData(FBlueprintMetadata::MD_Bitmask))
+		// {
+		// 	OutSubCategory = PSC_Bitmask;
+		// }
+	}
+	else if (const FByteProperty* ByteProperty = CastField<const FByteProperty>(TestProperty))
+	{
+		// @todo
+		
+		// OutCategory = PC_Byte;
+		//
+		// if (TestProperty->HasMetaData(FBlueprintMetadata::MD_Bitmask))
+		// {
+		// 	OutSubCategory = PSC_Bitmask;
+		// }
+		// else
+		// {
+		// 	OutSubCategoryObject = ByteProperty->Enum;
+		// }
+	}
+	else if (const FEnumProperty* EnumProperty = CastField<const FEnumProperty>(TestProperty))
+	{
+		// @todo
+		
+		
+		// // K2 only supports byte enums right now - any violations should have been caught by UHT or the editor
+		// if (!EnumProperty->GetUnderlyingProperty()->IsA<FByteProperty>())
+		// {
+		// 	OutCategory = TEXT("unsupported_enum_type: enum size is larger than a byte");
+		// 	return false;
+		// }
+		//
+		// OutCategory = PC_Byte;
+		//
+		// if (TestProperty->HasMetaData(FBlueprintMetadata::MD_Bitmask))
+		// {
+		// 	OutSubCategory = PSC_Bitmask;
+		// }
+		// else
+		// {
+		// 	OutSubCategoryObject = EnumProperty->GetEnum();
+		// }
+	}
+	else if (TestProperty->IsA<FNameProperty>())
+	{
+		// @todo
+		// OutCategory = PC_Name;
+	}
+	else if (TestProperty->IsA<FStrProperty>())
+	{
+		// @todo
+		// OutCategory = PC_String;
+	}
+	else if (TestProperty->IsA<FTextProperty>())
+	{
+		// @todo
+		// OutCategory = PC_Text;
+	}
+	else if (const FFieldPathProperty* FieldPathProperty = CastField<const FFieldPathProperty>(TestProperty))
+	{
+		// @todo
+		// OutCategory = PC_FieldPath;
+		//OutSubCategoryObject = SoftObjectProperty->PropertyClass; @todo: FProp
+	}
+	else
+	{
+		OutCategory = TEXT("bad_type");
+		return false;
+	}
+
+	return true;
+}
+
+
+
+bool UPDMissionGraphSchema::ConvertPropertyToPinType(const FProperty* Property, /*out*/ FEdGraphPinType& TypeOut) const
+{
+	if (Property == nullptr)
+	{
+		TypeOut.PinCategory = TEXT("bad_type");
+		return false;
+	}
+
+	TypeOut.PinSubCategory = NAME_None;
+	
+	// Handle whether or not this is an array property
+	const FMapProperty* MapProperty = CastField<const FMapProperty>(Property);
+	const FSetProperty* SetProperty = CastField<const FSetProperty>(Property);
+	const FArrayProperty* ArrayProperty = CastField<const FArrayProperty>(Property);
+	const FProperty* TestProperty = Property;
+	if (MapProperty)
+	{
+		TestProperty = MapProperty->KeyProp;
+
+		// set up value property:
+		UObject* SubCategoryObject = nullptr;
+		bool bIsWeakPtr = false;
+		bool bResult = const_cast<UPDMissionGraphSchema*>(this)->GetPropertyCategoryInfo(MapProperty->ValueProp, TypeOut.PinValueType.TerminalCategory,
+		                                                                                 TypeOut.PinValueType.TerminalSubCategory, SubCategoryObject, bIsWeakPtr);
+		TypeOut.PinValueType.TerminalSubCategoryObject = SubCategoryObject;
+
+		if (bIsWeakPtr)
+		{
+			return false;
+		}
+
+		if (!bResult)
+		{
+			return false;
+		}
+
+		// Ensure that the value term will be identified as a wrapper type if the source property has that flag set.
+		if(MapProperty->ValueProp->HasAllPropertyFlags(CPF_UObjectWrapper))
+		{
+			TypeOut.PinValueType.bTerminalIsUObjectWrapper = true;
+		}
+	}
+	else if (SetProperty)
+	{
+		TestProperty = SetProperty->ElementProp;
+	}
+	else if (ArrayProperty)
+	{
+		TestProperty = ArrayProperty->Inner;
+	}
+	TypeOut.ContainerType = FEdGraphPinType::ToPinContainerType(ArrayProperty != nullptr, SetProperty != nullptr, MapProperty != nullptr);
+	TypeOut.bIsReference = Property->HasAllPropertyFlags(CPF_OutParm|CPF_ReferenceParm);
+	TypeOut.bIsConst     = Property->HasAllPropertyFlags(CPF_ConstParm);
+
+	// This flag will be set on the key/inner property for container types, so check the test property.
+	TypeOut.bIsUObjectWrapper = TestProperty->HasAllPropertyFlags(CPF_UObjectWrapper);
+
+	// @todo
+	// // Check to see if this is the wildcard property for the target container type
+	//
+	// if(IsWildcardProperty(Property))
+	// {
+	// 	TypeOut.PinCategory = PC_Wildcard;
+	// 	if(MapProperty)
+	// 	{
+	// 		TypeOut.PinValueType.TerminalCategory = PC_Wildcard;
+	// 	}
+	// }
+	// else
+	// {
+	// 	UObject* SubCategoryObject = nullptr;
+	// 	bool bIsWeakPointer = false;
+	// 	bool bResult = GetPropertyCategoryInfo(TestProperty, TypeOut.PinCategory, TypeOut.PinSubCategory, SubCategoryObject, bIsWeakPointer);
+	// 	TypeOut.bIsWeakPointer = bIsWeakPointer;
+	// 	TypeOut.PinSubCategoryObject = SubCategoryObject;
+	// 	if (!bResult)
+	// 	{
+	// 		return false;
+	// 	}
+	// }
+	//
+	// if (TypeOut.PinSubCategory == PSC_Bitmask)
+	// {
+	// 	const FString& BitmaskEnumName = TestProperty->GetMetaData(TEXT("BitmaskEnum"));
+	// 	if(!BitmaskEnumName.IsEmpty())
+	// 	{
+	// 		// @TODO: Potentially replace this with a serialized UEnum reference on the FProperty (e.g. FByteProperty::Enum)
+	// 		TypeOut.PinSubCategoryObject = UClass::TryFindTypeSlow<UEnum>(BitmaskEnumName);
+	// 	}
+	// }
+
+	return true;
+}
+
+
+
 bool UPDMissionGraphSchema::IsCacheVisualizationOutOfDate(int32 InVisualizationCacheID) const
 {
 	return CurrentCacheRefreshID != InVisualizationCacheID;
@@ -793,3 +982,91 @@ void UPDMissionGraphSchema::ForceVisualizationCacheClear() const
 
 #undef LOCTEXT_NAMESPACE
 
+/**
+Business Source License 1.1
+
+Parameters
+
+Licensor:             Ario Amin (@ Permafrost Development)
+Licensed Work:        PDOpenSource (Source available on github)
+                      The Licensed Work is (c) 2024 Ario Amin (@ Permafrost Development)
+Additional Use Grant: You may make commercial use of the Licensed Work provided these three additional conditions as met; 
+                      	1. Must give attributions to the original author of the Licensed Work, in 'Credits' if that is applicable.
+                      	2. The Licensed Work must be Compiled before being redistributed.
+                      	3. The Licensed Work Source may not be packaged into the product or service being sold
+
+                      "Credits" indicate a scrolling screen with attributions. This is usually in a products end-state
+
+                      "Compiled" form means the compiled bytecode, object code, binary, or any other
+                      form resulting from mechanical transformation or translation of the Source form.
+                      
+                      "Source" form means the source code (.h & .cpp files) contained in the different modules in PDOpenSource.
+                      This will usually be written in human-readable format.
+
+                      "Package" means the collection of files distributed by the Licensor, and derivatives of that collection
+                      and/or of the files or codes therein..  
+
+Change Date:          2028-04-17
+
+Change License:       Apache License, Version 2.0
+
+For information about alternative licensing arrangements for the Software,
+please visit: N/A
+
+Notice
+
+The Business Source License (this document, or the “License”) is not an Open Source license.
+However, the Licensed Work will eventually be made available under an Open Source License, as stated in this License.
+
+License text copyright (c) 2017 MariaDB Corporation Ab, All Rights Reserved.
+“Business Source License” is a trademark of MariaDB Corporation Ab.
+
+-----------------------------------------------------------------------------
+
+Business Source License 1.1
+
+Terms
+
+The Licensor hereby grants you the right to copy, modify, create derivative works, redistribute, and make non-production use of the Licensed Work.
+The Licensor may make an Additional Use Grant, above, permitting limited production use.
+
+Effective on the Change Date, or the fourth anniversary of the first publicly available distribution of a specific version of the Licensed Work under this License,
+whichever comes first, the Licensor hereby grants you rights under the terms of the Change License, and the rights granted in the paragraph above terminate.
+
+If your use of the Licensed Work does not comply with the requirements currently in effect as described in this License, you must purchase a
+commercial license from the Licensor, its affiliated entities, or authorized resellers, or you must refrain from using the Licensed Work.
+
+All copies of the original and modified Licensed Work, and derivative works of the Licensed Work, are subject to this License. This License applies
+separately for each version of the Licensed Work and the Change Date may vary for each version of the Licensed Work released by Licensor.
+
+You must conspicuously display this License on each original or modified copy of the Licensed Work. If you receive the Licensed Work
+in original or modified form from a third party, the terms and conditions set forth in this License apply to your use of that work.
+
+Any use of the Licensed Work in violation of this License will automatically terminate your rights under this License for the current
+and all other versions of the Licensed Work.
+
+This License does not grant you any right in any trademark or logo of Licensor or its affiliates (provided that you may use a
+trademark or logo of Licensor as expressly required by this License).
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON AN “AS IS” BASIS. LICENSOR HEREBY DISCLAIMS ALL WARRANTIES AND CONDITIONS,
+EXPRESS OR IMPLIED, INCLUDING (WITHOUT LIMITATION) WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND TITLE.
+
+MariaDB hereby grants you permission to use this License’s text to license your works, and to refer to it using the trademark
+“Business Source License”, as long as you comply with the Covenants of Licensor below.
+
+Covenants of Licensor
+
+In consideration of the right to use this License’s text and the “Business Source License” name and trademark,
+Licensor covenants to MariaDB, and to all other recipients of the licensed work to be provided by Licensor:
+
+1. To specify as the Change License the GPL Version 2.0 or any later version, or a license that is compatible with GPL Version 2.0
+   or a later version, where “compatible” means that software provided under the Change License can be included in a program with
+   software provided under GPL Version 2.0 or a later version. Licensor may specify additional Change Licenses without limitation.
+
+2. To either: (a) specify an additional grant of rights to use that does not impose any additional restriction on the right granted in
+   this License, as the Additional Use Grant; or (b) insert the text “None”.
+
+3. To specify a Change Date.
+
+4. Not to modify this License in any other way.
+ **/
