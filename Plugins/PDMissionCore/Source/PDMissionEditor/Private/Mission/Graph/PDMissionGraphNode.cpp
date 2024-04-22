@@ -1,21 +1,22 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
 
-#include "MissionGraph/PDMissionGraphNode.h"
+#include "Mission/Graph/PDMissionGraphNode.h"
+#include "Mission/Graph/PDMissionGraph.h"
+#include "Mission/Graph/PDMissionGraphSchema.h"
+#include "Mission/Slate/PDMissionView.h"
+
 #include "UObject/Class.h"
 #include "UObject/UnrealType.h"
 #include "Engine/Blueprint.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "AssetRegistry/AssetData.h"
 #include "EdGraph/EdGraphSchema.h"
-#include "MissionGraph/PDMissionGraph.h"
 #include "DiffResults.h"
 #include "ScopedTransaction.h"
 #include "BlueprintNodeHelpers.h"
 #include "GameplayTagContainer.h"
 #include "SGraphNodeKnot.h"
-#include "MissionGraph/PDMissionGraphSchema.h"
-#include "MissionGraph/Slate/PDMissionView.h"
 
 #define LOCTEXT_NAMESPACE "MissionGraph"
 
@@ -160,9 +161,7 @@ void UPDMissionGraphNode::RefreshDataRefPins(const FName& MissionRowName)
 	{
 		RemovePinAt(3, EGPD_Input);
 	}
-
 }
-
 
 FText UPDMissionGraphNode::GetDescription() const
 {
@@ -202,7 +201,9 @@ UEdGraphPin* UPDMissionGraphNode::GetInputPin(int32 InputIndex) const
 {
 	check(InputIndex >= 0);
 
-	for (int32 PinIndex = 0, FoundInputs = 0; PinIndex < Pins.Num(); PinIndex++)
+	int32 PinIndex = 0, FoundInputs = 0;
+	const int32 PinLimit = Pins.Num();
+	for (; PinIndex < PinLimit; PinIndex++)
 	{
 		if (Pins[PinIndex]->Direction != EGPD_Input) { continue; }
 		
@@ -218,7 +219,9 @@ UEdGraphPin* UPDMissionGraphNode::GetOutputPin(int32 InputIndex) const
 {
 	check(InputIndex >= 0);
 
-	for (int32 PinIndex = 0, FoundInputs = 0; PinIndex < Pins.Num(); PinIndex++)
+	int32 PinIndex = 0, FoundInputs = 0;
+	const int32 PinLimit = Pins.Num();	
+	for (; PinIndex < PinLimit; PinIndex++)
 	{
 		if (Pins[PinIndex]->Direction != EGPD_Output) { continue; }
 		
@@ -385,20 +388,12 @@ void UPDMissionGraphNode::OnSubNodeRemoved(UPDMissionGraphNode* SubNode)
 
 int32 UPDMissionGraphNode::FindSubNodeDropIndex(UPDMissionGraphNode* SubNode) const
 {
-	const int32 InsertIndex = SubNodes.IndexOfByKey(SubNode);
-	return InsertIndex;
+	return SubNodes.IndexOfByKey(SubNode);
 }
 
 void UPDMissionGraphNode::InsertSubNodeAt(UPDMissionGraphNode* SubNode, int32 DropIndex)
 {
-	if (DropIndex > -1)
-	{
-		SubNodes.Insert(SubNode, DropIndex);
-	}
-	else
-	{
-		SubNodes.Add(SubNode);
-	}
+	int32 ResultIndex = DropIndex > -1 ? SubNodes.Insert(SubNode, DropIndex) : SubNodes.Add(SubNode);
 }
 
 void UPDMissionGraphNode::DestroyNode()
@@ -427,20 +422,19 @@ void UPDMissionGraphNode::GetMissionTransitions(TArray<UPDMissionTransitionNode*
 
 void UPDMissionGraphNode::UpdateNodeDataFrom(UClass* InstanceClass, FPDMissionNodeData& UpdatedData)
 {
-	if (InstanceClass)
+	if (InstanceClass == nullptr) { return; }
+	
+	if (const UBlueprint* BPOwner = Cast<UBlueprint>(InstanceClass->ClassGeneratedBy))
 	{
-		if (const UBlueprint* BPOwner = Cast<UBlueprint>(InstanceClass->ClassGeneratedBy))
-		{
-			UpdatedData = FPDMissionNodeData(BPOwner->GetName(), BPOwner->GetOutermost()->GetName(), InstanceClass->GetName(), InstanceClass);
-		}
-		else if (UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(InstanceClass))
-		{
-			UpdatedData = FPDMissionNodeData(BPGC->GetClassPathName(), BPGC);
-		}
-		else
-		{
-			UpdatedData = FPDMissionNodeData(InstanceClass);
-		}
+		UpdatedData = FPDMissionNodeData(BPOwner->GetName(), BPOwner->GetOutermost()->GetName(), InstanceClass->GetName(), InstanceClass);
+	}
+	else if (UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(InstanceClass))
+	{
+		UpdatedData = FPDMissionNodeData(BPGC->GetClassPathName(), BPGC);
+	}
+	else
+	{
+		UpdatedData = FPDMissionNodeData(InstanceClass);
 	}
 }
 
@@ -449,12 +443,6 @@ bool UPDMissionGraphNode::HasErrors() const
 	return NodeInstance == nullptr;
 }
 
-#undef LOCTEXT_NAMESPACE
-
-
-
-
-#define LOCTEXT_NAMESPACE "MissionGraph"
 
 static const char* PC_Wildcard = "wildcard";
 
@@ -530,12 +518,8 @@ TSharedPtr<class INameValidatorInterface> UPDMissionGraphNode_Knot::MakeNameVali
 
 UEdGraphPin* UPDMissionGraphNode_Knot::GetPassThroughPin(const UEdGraphPin* FromPin) const
 {
-	if(FromPin && Pins.Contains(FromPin))
-	{
-		return FromPin == Pins[0] ? Pins[1] : Pins[0];
-	}
-
-	return nullptr;
+	const bool bValidPin = FromPin != nullptr && Pins.Contains(FromPin);
+	return bValidPin ? (FromPin == Pins[0] ? Pins[1] : Pins[0]) : nullptr;
 }
 
 TSharedPtr<SGraphNode> UPDMissionGraphNode_Knot::CreateVisualWidget()
@@ -543,7 +527,11 @@ TSharedPtr<SGraphNode> UPDMissionGraphNode_Knot::CreateVisualWidget()
 	return SNew(SGraphNodeKnot, this);
 }
 
-
+bool UPDMissionGraphNode_Knot::CanCreateUnderSpecifiedSchema(const UEdGraphSchema* Schema) const
+{
+	check(Schema);
+	return Schema->GetClass()->IsChildOf(UPDMissionGraphSchema::StaticClass());
+}
 
 
 UPDMissionTransitionNode::UPDMissionTransitionNode(const FObjectInitializer& ObjectInitializer)
@@ -579,11 +567,10 @@ void UPDMissionTransitionNode::PostPasteNode()
 	// really describe the connection between two other nodes). If we find one missing link, get rid of the node.
 	for(UEdGraphPin* Pin : Pins)
 	{
-		if(Pin->LinkedTo.Num() == 0)
-		{
-			DestroyNode();
-			break;
-		}
+		if(Pin->LinkedTo.IsEmpty() == false) { continue; }
+		
+		DestroyNode();
+		break;
 	}
 }
 
@@ -615,28 +602,19 @@ FText UPDMissionTransitionNode::GetTooltipText() const
 	return LOCTEXT("StateTransitionTooltip", "This is a state transition");
 }
 
+UPDMissionGraphNode* UPDMissionTransitionNode::GetLinkedNode(TArray<UEdGraphPin*>& Links, int32 LinkIdx)
+{
+	return (Links.IsEmpty() == false) ? Cast<UPDMissionGraphNode>(Links[LinkIdx]->GetOwningNode()) : nullptr;
+}
+
 UPDMissionGraphNode* UPDMissionTransitionNode::GetOwningMission() const
 {
-	if (Pins[0]->LinkedTo.Num() > 0)
-	{
-		return Cast<UPDMissionGraphNode>(Pins[0]->LinkedTo[0]->GetOwningNode());
-	}
-	else
-	{
-		return NULL;
-	}
+	return GetLinkedNode(Pins[0]->LinkedTo, 0);
 }
 
 UPDMissionGraphNode* UPDMissionTransitionNode::GetTargetMission() const
 {
-	if (Pins[1]->LinkedTo.Num() > 0)
-	{
-		return Cast<UPDMissionGraphNode>(Pins[1]->LinkedTo[0]->GetOwningNode());
-	}
-	else
-	{
-		return NULL;
-	}
+	return GetLinkedNode(Pins[1]->LinkedTo, 0);
 }
 
 FLinearColor UPDMissionTransitionNode::GetNodeTitleColor() const
@@ -646,19 +624,16 @@ FLinearColor UPDMissionTransitionNode::GetNodeTitleColor() const
 
 void UPDMissionTransitionNode::PinConnectionListChanged(UEdGraphPin* Pin)
 {
-	if (Pin->LinkedTo.Num() == 0)
-	{
-		// Commit suicide; transitions must always have an input and output connection
-		Modify();
+	if (Pin->LinkedTo.IsEmpty() == false) { return; }
+	
+	// Destroy if no links; transitions must always have an input and output connection
+	Modify();
 
-		// Our parent graph will have our graph in SubGraphs so needs to be modified to record that.
-		if(UEdGraph* ParentGraph = GetGraph())
-		{
-			ParentGraph->Modify();
-		}
-
-		DestroyNode();
-	}
+	// Our parent graph will have our graph in SubGraphs so needs to be modified to record that.
+	UEdGraph* ParentGraph = GetGraph();
+	if (ParentGraph != nullptr) { ParentGraph->Modify(); }
+	
+	DestroyNode();
 }
 
 void UPDMissionTransitionNode::CreateConnections(UPDMissionGraphNode* PreviousState, UPDMissionGraphNode* NextState)
@@ -720,10 +695,9 @@ TArray<UPDMissionTransitionNode*> UPDMissionTransitionNode::GetListTransitionNod
 		UEdGraphNode* OldTargetNode = CastedOldTarget->GetTargetMission();
 
 		// Compare the target states rather than comparing against the transition nodes
-		if (TransitionTargetNode != OldTargetNode)
-		{
-			TransitionNodeCandidates.Remove(CurrentTransition);
-		}
+		if (TransitionTargetNode == OldTargetNode) { continue; }
+		
+		TransitionNodeCandidates.Remove(CurrentTransition);
 	}
 
 	// Collect the subset of selected transitions from the list of possible transitions to be relinked
@@ -731,15 +705,12 @@ TArray<UPDMissionTransitionNode*> UPDMissionTransitionNode::GetListTransitionNod
 	for (UEdGraphNode* GraphNode : InSelectedGraphNodes)
 	{
 		UPDMissionTransitionNode* TransitionNode = Cast<UPDMissionTransitionNode>(GraphNode);
-		if (!TransitionNode)
+		if (TransitionNode == nullptr || TransitionNodeCandidates.Find(TransitionNode) == INDEX_NONE)
 		{
 			continue;
 		}
-
-		if (TransitionNodeCandidates.Find(TransitionNode) != INDEX_NONE)
-		{
-			SelectedTransitionNodes.Add(TransitionNode);
-		}
+		
+		SelectedTransitionNodes.Add(TransitionNode);
 	}
 
 	TArray<UPDMissionTransitionNode*> Result;
@@ -747,7 +718,7 @@ TArray<UPDMissionTransitionNode*> UPDMissionTransitionNode::GetListTransitionNod
 	for (UPDMissionTransitionNode* TransitionNode : TransitionNodeCandidates)
 	{
 		// Only relink the selected transitions. If none are selected, relink them all.
-		if (!SelectedTransitionNodes.IsEmpty() && SelectedTransitionNodes.Find(TransitionNode) == nullptr)
+		if (SelectedTransitionNodes.IsEmpty() == false && SelectedTransitionNodes.Find(TransitionNode) == nullptr)
 		{
 			continue;
 		}

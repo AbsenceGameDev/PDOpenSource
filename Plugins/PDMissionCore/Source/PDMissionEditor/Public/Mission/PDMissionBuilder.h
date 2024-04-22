@@ -1,88 +1,35 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
-#include "MissionGraph/PDMissionEditorModes.h"
-#include "MissionGraph/FPDMissionEditor.h"
-#include "MissionGraph/PDMissionEditorToolbar.h"
-#include "MissionGraph/PDMissionTabFactories.h"
+#pragma once
+
 #include "PDMissionGraphTypes.h"
+#include "Graph/PDMissionGraphNode.h"
+// #include "HAL/Platform.h"
 
-FMissionEditorApplicationMode_GraphView::FMissionEditorApplicationMode_GraphView(TSharedPtr<FFPDMissionGraphEditor> InMissionEditor)
-	: FApplicationMode(FFPDMissionGraphEditor::GraphViewMode, FFPDMissionGraphEditor::GetLocalizedMode)
+class UPDMissionGraph;
+class FName;
+class FString;
+template <typename FuncType> class TFunctionRef;
+
+class UEdGraphPin;
+
+struct PDMISSIONEDITOR_API FPDMissionBuilder : public TSharedFromThis<FPDMissionBuilder>
 {
-	MissionEditor = InMissionEditor;
-
-	MissionEditorTabFactories.RegisterFactory(MakeShareable(new FPDMissionDetailsFactory(InMissionEditor)));
-	MissionEditorTabFactories.RegisterFactory(MakeShareable(new FPDMissionSearchFactory(InMissionEditor)));
-	MissionEditorTabFactories.RegisterFactory(MakeShareable(new FPDMissionTreeEditorFactory(InMissionEditor)));
-
-	TabLayout = FTabManager::NewLayout( "Standalone_MissionEditor_GraphView_Layout_v4" )
-	->AddArea
-	(
-		FTabManager::NewPrimaryArea()
-		->SetOrientation(Orient_Horizontal)
-		->Split
-		(
-			FTabManager::NewStack()
-			->SetSizeCoefficient(0.7f)
-			->AddTab(FPDMissionEditorTabs::GraphEditorID, ETabState::ClosedTab)
-		)
-		->Split
-		(
-			FTabManager::NewSplitter()
-			->SetOrientation(Orient_Vertical)
-			->SetSizeCoefficient(0.3f)
-			->Split
-			(
-				FTabManager::NewStack()
-				->SetSizeCoefficient(0.6f)
-				->AddTab(FPDMissionEditorTabs::GraphDetailsID, ETabState::OpenedTab)
-				->AddTab(FPDMissionEditorTabs::SearchID, ETabState::ClosedTab)
-			)
- 			->Split
- 			(
- 				FTabManager::NewStack()
- 				->SetSizeCoefficient(0.4f)
- 				->AddTab(FPDMissionEditorTabs::TreeEditorID, ETabState::OpenedTab)
- 			)
-		)
-	);
+	FPDMissionBuilder() {}
+public:
 	
-	// InMissionEditor->GetToolbarBuilder()->AddDebuggerToolbar(ToolbarExtender); // @todo: debugger
-	InMissionEditor->GetToolbarBuilder()->AddMissionEditorToolbar(ToolbarExtender);
-}
+	// Creates a new graph but does not add it
+	static UPDMissionGraph* CreateNewGraph(const FPDMissionNodeHandle& NodeData, FName GraphName);
+	static UPDMissionGraph* CreateNewGraph(UDataTable* MissionTable, FName GraphName);
 
-void FMissionEditorApplicationMode_GraphView::RegisterTabFactories(TSharedPtr<FTabManager> InTabManager)
-{
-	check(MissionEditor.IsValid());
-	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
-	
-	MissionEditorPtr->RegisterToolbarTab(InTabManager.ToSharedRef());
+	// Skips over knots.
+	static void ForeachConnectedOutgoingMissionNode(UEdGraphPin* Pin, TFunctionRef<void(UPDMissionGraphNode*)> Predicate);
+};
 
-	// Mode-specific setup
-	MissionEditorPtr->PushTabFactories(MissionEditorTabFactories);
+#if UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_2
+#include "CoreMinimal.h"
+#endif
 
-	FApplicationMode::RegisterTabFactories(InTabManager);
-}
-
-void FMissionEditorApplicationMode_GraphView::PreDeactivateMode()
-{
-	FApplicationMode::PreDeactivateMode();
-
-	check(MissionEditor.IsValid());
-	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
-	
-	MissionEditorPtr->SaveEditedObjectState();
-}
-
-void FMissionEditorApplicationMode_GraphView::PostActivateMode()
-{
-	// Reopen any documents that were open when the blueprint was last saved
-	check(MissionEditor.IsValid());
-	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
-	MissionEditorPtr->RegenerateMissionGraph();
-
-	FApplicationMode::PostActivateMode();
-}
 
 /**
 Business Source License 1.1

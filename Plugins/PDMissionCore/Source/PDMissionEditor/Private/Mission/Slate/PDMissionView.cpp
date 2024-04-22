@@ -1,11 +1,10 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
-#include "MissionGraph/Slate/PDMissionView.h"
-#include "MissionGraph/FPDMissionEditor.h"
-#include "MissionGraph/PDMissionGraph.h"
-#include "MissionGraph/PDMissionBuilder.h"
-#include "MissionGraph/PDMissionGraphNode.h"
-#include "MissionGraph/PDMissionGraphSchema.h"
+#include "Mission/Slate/PDMissionView.h"
+#include "Mission/FPDMissionEditor.h"
+#include "Mission/PDMissionBuilder.h"
+#include "Mission/Graph/PDMissionGraph.h"
+#include "Mission/Graph/PDMissionGraphNode.h"
 
 #include <EdGraph/EdGraphPin.h>
 #include <EdGraph/EdGraphSchema.h>
@@ -164,10 +163,10 @@ void SMissionTreeEditor::BuildTree()
 	// @todo no entry points are created, coming back to in a couple of days
 	for (UEdGraphNode* Node : Graph->Nodes)
 	{
-		if (UPDMissionGraphNode_EntryPoint* RootNode = Cast<UPDMissionGraphNode_EntryPoint>(Node))
-		{
-			RootNodes.Add(MakeShared<FMissionTreeNode>(RootNode, TSharedPtr<FMissionTreeNode>()));
-		}
+		UPDMissionGraphNode_EntryPoint* RootNode = Cast<UPDMissionGraphNode_EntryPoint>(Node);
+		if (RootNode == nullptr) { continue; }
+
+		RootNodes.Add(MakeShared<FMissionTreeNode>(RootNode, TSharedPtr<FMissionTreeNode>()));
 	}
 }
 

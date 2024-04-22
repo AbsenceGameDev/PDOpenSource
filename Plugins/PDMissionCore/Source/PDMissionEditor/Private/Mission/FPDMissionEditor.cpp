@@ -1,31 +1,38 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
 
-#include "MissionGraph/FPDMissionEditor.h"
+// Mission gameplay and mission editor includes
+#include "Mission/FPDMissionEditor.h"
 
-#include "MissionGraph/PDMissionGraph.h"
-#include "MissionGraph/PDMissionGraphNode.h"
-#include "MissionGraph/PDMissionEditorToolbar.h"
-#include "MissionGraph/PDMissionTabFactories.h"
+#include "Mission/Graph/PDMissionGraph.h"
+#include "Mission/Graph/PDMissionGraphNode.h"
+
+#include "Mission/PDMissionEditorToolbar.h"
+#include "Mission/PDMissionTabFactories.h"
+
+#include "PDMissionCommon.h"
 #include "PDMissionGraphTypes.h"
+
+#include "Mission/PDMissionEditorModes.h"
+#include "Mission/Slate/PDMissionView.h"
+#include "Mission/Slate/PDSearchMission.h"
+
 #include "PDMissionEditorCommands.h"
 
-#include "Framework/Application/SlateApplication.h"
-#include "Editor/EditorEngine.h"
-#include "EngineGlobals.h"
-#include "ScopedTransaction.h"
+// Engine 
 #include "EdGraphUtilities.h"
-#include "Framework/Commands/GenericCommands.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "ScopedTransaction.h"
 #include "GraphEditorActions.h"
-#include "PDMissionCommon.h"
 #include "StructViewerFilter.h"
 #include "StructViewerModule.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Editor/EditorEngine.h"
+#include "EngineGlobals.h"
+
+
 #include "HAL/PlatformApplicationMisc.h"
-#include "EdGraph/EdGraphSchema.h"
-// #include "MissionGraph/PDMissionBuilder.h"
-#include "MissionGraph/PDMissionEditorModes.h"
-#include "MissionGraph/Slate/PDMissionView.h"
-#include "MissionGraph/Slate/PDSearchMission.h"
 #include "WorkflowOrientedApp/WorkflowTabManager.h"
 
 #define LOCTEXT_NAMESPACE "MissionGraph"

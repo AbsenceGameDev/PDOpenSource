@@ -154,7 +154,7 @@ public:
 		CreateMissionPin(); // @todo when set, generate the mission/questline in the graph using this node as its root
 		
 		// No pins for requirements
-		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
+		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("Out"));
 	}
 	
 	virtual FLinearColor GetNodeBodyTintColor() const override
@@ -179,13 +179,13 @@ public:
 	virtual void AllocateDefaultPins() override
 	{
 		// Simple pins (Input)
-		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("In"));
+		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("In"));
 		
 		// Custom pins (Input)
 		CreateMissionPin();
 
 		// Simple pins (Output)		
-		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
+		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("Out"));
 	}
 	
 	virtual FLinearColor GetNodeBodyTintColor() const override
@@ -209,13 +209,13 @@ public:
 	virtual void AllocateDefaultPins() override
 	{
 		// Simple pins (Input)
-		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("In"));
+		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("In"));
 
 		// Custom pins (Input)
 		CreateMissionPin();
 
 		// Simple pins (Output)
-		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
+		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("Out"));
 	}
 	
 	virtual FLinearColor GetNodeBodyTintColor() const override
@@ -240,13 +240,13 @@ public:
 	virtual void AllocateDefaultPins() override
 	{
 		// Simple pins (Input)
-		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("In"));
+		CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("In"));
 
 		// Custom pins (Input)
 		CreateMissionPin();
 
 		// Simple pins (Output)
-		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_MultipleNodes, TEXT("Out"));
+		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("Out"));
 	}
 	
 	virtual FLinearColor GetNodeBodyTintColor() const override
@@ -275,6 +275,7 @@ public:
 	virtual bool IsCompilerRelevant() const override { return false; }
 	virtual UEdGraphPin* GetPassThroughPin(const UEdGraphPin* FromPin) const override;
 	virtual TSharedPtr<SGraphNode> CreateVisualWidget() override;
+	virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* Schema) const override;
 	virtual bool ShouldDrawNodeAsControlPointOnly(int32& OutInputPinIndex, int32& OutOutputPinIndex) const override { OutInputPinIndex = 0; OutOutputPinIndex = 1; return true; }
 	// End of UEdGraphNode interface
 	
@@ -332,6 +333,8 @@ class UPDMissionTransitionNode : public UEdGraphNode
 	// @return the name of this state
 	PDMISSIONEDITOR_API FString GetMissionName() const;
 
+	static UPDMissionGraphNode* GetLinkedNode(TArray<UEdGraphPin*>& Links, int32 LinkIdx);
+	
 	PDMISSIONEDITOR_API UPDMissionGraphNode* GetOwningMission() const;
 	PDMISSIONEDITOR_API UPDMissionGraphNode* GetTargetMission() const;
 	PDMISSIONEDITOR_API void CreateConnections(UPDMissionGraphNode* PreviousState, UPDMissionGraphNode* NextState);

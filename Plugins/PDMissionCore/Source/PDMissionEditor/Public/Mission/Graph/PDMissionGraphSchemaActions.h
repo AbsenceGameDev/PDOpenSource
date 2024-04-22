@@ -15,7 +15,7 @@ class FSlateWindowElementList;
 #include "UObject/ObjectMacros.h"
 #include "EdGraph/EdGraphSchema.h"
 #include "PDMissionGraphTypes.h"
-#include "PDMissionGraphSchema.generated.h"
+#include "PDMissionGraphSchemaActions.generated.h"
 
 class FSlateRect;
 class UEdGraph;
@@ -28,9 +28,8 @@ struct FMissionSchemaAction_AddComment : public FEdGraphSchemaAction
 	
 	FMissionSchemaAction_AddComment() : FEdGraphSchemaAction() {}
 	FMissionSchemaAction_AddComment(FText InDescription, FText InToolTip)
-		: FEdGraphSchemaAction(FText(), MoveTemp(InDescription), MoveTemp(InToolTip), 0)
-	{
-	}
+		: FEdGraphSchemaAction(FText(), MoveTemp(InDescription), MoveTemp(InToolTip), 0) {}
+	
 
 	// FEdGraphSchemaAction interface
 	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override final;
@@ -47,22 +46,17 @@ struct PDMISSIONEDITOR_API FMissionSchemaAction_NewNode : public FEdGraphSchemaA
 	UPROPERTY()
 	TObjectPtr<class UPDMissionGraphNode> NodeTemplate;
 
-	FMissionSchemaAction_NewNode()
-		: FEdGraphSchemaAction()
-		, NodeTemplate(nullptr)
-	{}
-
+	FMissionSchemaAction_NewNode() : FEdGraphSchemaAction(), NodeTemplate(nullptr) {}
 	FMissionSchemaAction_NewNode(FText InNodeCategory, FText InMenuDesc, FText InToolTip, const int32 InGrouping)
 		: FEdGraphSchemaAction(MoveTemp(InNodeCategory), MoveTemp(InMenuDesc), MoveTemp(InToolTip), InGrouping)
-		, NodeTemplate(nullptr)
-	{}
-
+		, NodeTemplate(nullptr) {}
+	
 	//~ Begin FEdGraphSchemaAction Interface
-	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override;
-	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, TArray<UEdGraphPin*>& FromPins, const FVector2D Location, bool bSelectNewNode = true) override;
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	virtual UEdGraphNode* PerformAction(UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override;
+	virtual UEdGraphNode* PerformAction(UEdGraph* ParentGraph, TArray<UEdGraphPin*>& FromPins, const FVector2D Location, bool bSelectNewNode = true) override;
 	//~ End FEdGraphSchemaAction Interface
-
+	
 	template <typename NodeType>
 	static NodeType* SpawnNodeFromTemplate(class UEdGraph* ParentGraph, NodeType* InTemplateNode, const FVector2D Location)
 	{
@@ -72,40 +66,6 @@ struct PDMISSIONEDITOR_API FMissionSchemaAction_NewNode : public FEdGraphSchemaA
 		return Cast<NodeType>(Action.PerformAction(ParentGraph, nullptr, Location));
 	}
 };
-
-/** Action to add a sub-node to the selected node */
-USTRUCT()
-struct PDMISSIONEDITOR_API FMissionSchemaAction_NewSubNode : public FEdGraphSchemaAction
-{
-	GENERATED_USTRUCT_BODY();
-
-	/** Template of node we want to create */
-	UPROPERTY()
-	TObjectPtr<class UPDMissionGraphNode> NodeTemplate;
-
-	/** parent node */
-	UPROPERTY()
-	TObjectPtr<class UPDMissionGraphNode> ParentNode;
-
-	FMissionSchemaAction_NewSubNode()
-		: FEdGraphSchemaAction()
-		, NodeTemplate(nullptr)
-		, ParentNode(nullptr)
-	{}
-
-	FMissionSchemaAction_NewSubNode(FText InNodeCategory, FText InMenuDesc, FText InToolTip, const int32 InGrouping)
-		: FEdGraphSchemaAction(MoveTemp(InNodeCategory), MoveTemp(InMenuDesc), MoveTemp(InToolTip), InGrouping)
-		, NodeTemplate(nullptr)
-		, ParentNode(nullptr)
-	{}
-
-	//~ Begin FEdGraphSchemaAction Interface
-	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override;
-	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, TArray<UEdGraphPin*>& FromPins, const FVector2D Location, bool bSelectNewNode = true) override;
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
-	//~ End FEdGraphSchemaAction Interface
-};
-
 
 //////////////////////////////////////////////////////////////////////
 
@@ -119,8 +79,7 @@ struct FMissionGraphSchemaAction_AutoArrange : public FEdGraphSchemaAction
 		: FEdGraphSchemaAction() {}
 
 	FMissionGraphSchemaAction_AutoArrange(FText InNodeCategory, FText InMenuDesc, FText InToolTip, const int32 InGrouping)
-		: FEdGraphSchemaAction(MoveTemp(InNodeCategory), MoveTemp(InMenuDesc), MoveTemp(InToolTip), InGrouping)
-	{}
+		: FEdGraphSchemaAction(MoveTemp(InNodeCategory), MoveTemp(InMenuDesc), MoveTemp(InToolTip), InGrouping) {}
 
 	//~ Begin FEdGraphSchemaAction Interface
 	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override;
@@ -129,69 +88,12 @@ struct FMissionGraphSchemaAction_AutoArrange : public FEdGraphSchemaAction
 
 struct FPDSplitNodeParams
 {
-	FPDSplitNodeParams(const bool bInTransient)
-		: SourceGraph(nullptr)
-		, bTransient(bInTransient)
-	{}
-
-	FPDSplitNodeParams(UEdGraph* InSourceGraph)
-		: SourceGraph(InSourceGraph)
-		, bTransient(false)
-	{}
+	FPDSplitNodeParams(const bool bInTransient) : SourceGraph(nullptr) , bTransient(bInTransient) {}
+	FPDSplitNodeParams(UEdGraph* InSourceGraph) : SourceGraph(InSourceGraph) , bTransient(false) {}
 	
 	UEdGraph* SourceGraph;
 	bool bTransient;
 };
-
-UCLASS()
-class PDMISSIONEDITOR_API UPDMissionGraphSchema : public UEdGraphSchema
-{
-	GENERATED_UCLASS_BODY()
-
-	//~ Begin EdGraphSchema Interface
-	virtual void GetContextMenuActions(class UToolMenu* Menu, class UGraphNodeContextMenuContext* Context) const override;
-	virtual FLinearColor GetPinTypeColor(const FEdGraphPinType& PinType) const override;
-	virtual bool ShouldHidePinDefaultValue(UEdGraphPin* Pin) const override;
-	virtual class FConnectionDrawingPolicy* CreateConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float InZoomFactor, const FSlateRect& InClippingRect, class FSlateWindowElementList& InDrawElements, class UEdGraph* InGraphObj) const override;
-	virtual void BreakNodeLinks(UEdGraphNode& TargetNode) const override;
-	virtual void BreakPinLinks(UEdGraphPin& TargetPin, bool bSendsNodeNotification) const override;
-	virtual void BreakSinglePinLink(UEdGraphPin* SourcePin, UEdGraphPin* TargetPin) const override;
-	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateCommentAction() const override;
-	virtual int32 GetNodeSelectionCount(const UEdGraph* Graph) const override;
-	//~ End EdGraphSchema Interface
-
-	virtual void GetGraphNodeContextActions(FGraphContextMenuBuilder& ContextMenuBuilder, int32 SubNodeFlags) const;
-	virtual UClass* GetSubNodeClass(EMissionGraphSubNodeType SubNodeFlag) const;
-
-protected:
-
-	static TSharedPtr<FMissionSchemaAction_NewNode> AddNewNodeAction(FGraphActionListBuilderBase& ContextMenuBuilder, const FText& Category, const FText& MenuDesc, const FText& Tooltip);
-	static TSharedPtr<FMissionSchemaAction_NewSubNode> AddNewSubNodeAction(FGraphActionListBuilderBase& ContextMenuBuilder, const FText& Category, const FText& MenuDesc, const FText& Tooltip);
-
-public:
-	//~ Begin EdGraphSchema Interface
-	virtual void CreateDefaultNodesForGraph(UEdGraph& Graph) const override;
-	virtual void GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
-	virtual const FPinConnectionResponse CanCreateConnection(const UEdGraphPin* A, const UEdGraphPin* B) const override;
-	virtual const FPinConnectionResponse CanMergeNodes(const UEdGraphNode* A, const UEdGraphNode* B) const override;
-	virtual void OnPinConnectionDoubleCicked(UEdGraphPin* PinA, UEdGraphPin* PinB, const FVector2D& GraphPosition) const override;
-	bool GetPropertyCategoryInfo(const FProperty* TestProperty, FName& OutCategory, FName& OutSubCategory, UObject*& OutSubCategoryObject,
-	                             bool& bOutIsWeakPointer);
-	bool ConvertPropertyToPinType(const FProperty* Property, FEdGraphPinType& TypeOut) const;
-	virtual bool IsCacheVisualizationOutOfDate(int32 InVisualizationCacheID) const override;
-	virtual int32 GetCurrentVisualizationCacheID() const override;
-	virtual void ForceVisualizationCacheClear() const override;
-	//~ End EdGraphSchema Interface
-
-protected:
-	void AddMissionNodeOptions(const FString& CategoryName, FGraphContextMenuBuilder& ContextMenuBuilder, const FPDMissionNodeHandle& NodeData) const;
-
-private:
-	// ID for checking dirty status of node titles against, increases whenever 
-	static int32 CurrentCacheRefreshID;
-};
-
-
 
 /**
 Business Source License 1.1

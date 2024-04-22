@@ -1,26 +1,30 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
+// Mission editor
 #include "PDMissionGraphTypes.h"
 
+#include "Mission/FPDMissionEditor.h"
+#include "Mission/Graph/PDMissionGraphNode.h"
+#include "Mission/Slate/PDMissionView.h"
+
+// Engine
 #include "UObject/Object.h"
 #include "UObject/Class.h"
-#include "Misc/FeedbackContext.h"
-#include "Modules/ModuleManager.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UObjectIterator.h"
-#include "Misc/PackageName.h"
 #include "UObject/ConstructorHelpers.h"
-#include "Engine/Blueprint.h"
-#include "AssetRegistry/AssetData.h"
-#include "Editor.h"
 #include "ObjectEditorUtils.h"
+#include "Modules/ModuleManager.h"
+
+#include "Editor.h"
+#include "Engine/Blueprint.h"
+#include "Misc/PackageName.h"
 #include "Logging/MessageLog.h"
+#include "Misc/FeedbackContext.h"
+#include "AssetRegistry/AssetData.h"
 #include "AssetRegistry/ARFilter.h"
-#include "MissionGraph/FPDMissionEditor.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Engine/CompositeDataTable.h"
-#include "MissionGraph/PDMissionGraphNode.h"
-#include "MissionGraph/Slate/PDMissionView.h"
 
 #define LOCTEXT_NAMESPACE "MissionGraph"
 
@@ -41,10 +45,7 @@ const FName FPDMissionGraphTypes::PinCategory_MissionRow("MissionRow");
 const FName FPDMissionGraphTypes::PinCategory_MissionDataRef("MissionDataRef");
 const FName FPDMissionGraphTypes::PinCategory_MissionRowKeyBuilder("MissionRowKeyBuilder");
 
-const FName FPDMissionGraphTypes::PinCategory_MultipleNodes("MultipleNodes");
-const FName FPDMissionGraphTypes::PinCategory_SingleComposite("SingleComposite");
-const FName FPDMissionGraphTypes::PinCategory_SingleTask("SingleTask");
-const FName FPDMissionGraphTypes::PinCategory_SingleNode("SingleNode");
+const FName FPDMissionGraphTypes::PinCategory_LogicalPath("LogicalPath");
 
 
 FPDMissionNodeData::FPDMissionNodeData(UClass* InClass) :

@@ -1,25 +1,26 @@
 /* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
-
+// Mission editor
 #include "PDMissionEditor.h"
-
-#include "IAssetTools.h"
-#include "PDMissionEditorStyle.h"
-#include "PDMissionEditorCommands.h"
-#include "AssetTypeActions_Base.h"
 #include "PDMissionCommon.h"
 #include "PDMissionGraphTypes.h"
+#include "Mission/FPDMissionEditor.h"
+#include "Mission/PDMissionBuilder.h"
+#include "Mission/Graph/PDMissionGraph.h"
+#include "Mission/Graph/PDMissionGraphSchema.h"
+#include "Mission/Slate/PDMissionView.h"
+#include "PDMissionEditorStyle.h"
+#include "PDMissionEditorCommands.h"
+
+// Engine
+#include "IAssetTools.h"
+#include "AssetTypeActions_Base.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Text/STextBlock.h"
 #include "ToolMenus.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Factories/DataTableFactory.h"
-#include "MissionGraph/FPDMissionEditor.h"
-#include "MissionGraph/PDMissionBuilder.h"
-#include "MissionGraph/PDMissionGraph.h"
-#include "MissionGraph/PDMissionGraphSchema.h"
-#include "MissionGraph/Slate/PDMissionView.h"
 #include "Subsystems/PDMissionSubsystem.h"
 #include "WorkflowOrientedApp/WorkflowTabFactory.h"
 

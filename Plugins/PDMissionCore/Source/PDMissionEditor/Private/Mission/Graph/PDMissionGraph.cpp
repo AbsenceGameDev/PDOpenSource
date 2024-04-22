@@ -1,150 +1,131 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
-#include "MissionGraph/PDMissionTabFactories.h"
-#include "MissionGraph/FPDMissionEditor.h"
+#include "Mission/Graph/PDMissionGraph.h"
+#include "Mission/Graph/PDMissionGraphNode.h"
+#include "PDMissionEditor.h"
+#include "PDMissionGraphTypes.h"
 
-#include "Engine/Blueprint.h"
+#include "Containers/Array.h"
+#include "Containers/EnumAsByte.h"
 
-#include "Widgets/Docking/SDockTab.h"
+#include "EdGraph/EdGraphPin.h"
+#include "EdGraph/EdGraphSchema.h"
 
+#include "HAL/PlatformMath.h"
+#include "Logging/LogCategory.h"
+#include "Logging/LogMacros.h"
 
-#define LOCTEXT_NAMESPACE "MissionEditorFactories"
+#include "Serialization/Archive.h"
+#include "Templates/Casts.h"
+#include "Trace/Detail/Channel.h"
 
-//////////////////////////////////////////////////////////////////////
-//
+#include "UObject/Object.h"
+#include "UObject/ObjectPtr.h"
+#include "UObject/Package.h"
+#include "UObject/UObjectHash.h"
 
-FPDMissionDetailsFactory::FPDMissionDetailsFactory(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditorPtr)
-	: FWorkflowTabFactory(FPDMissionEditorTabs::GraphDetailsID, InMissionEditorPtr)
-	, MissionEditorPtr(InMissionEditorPtr)
+UPDMissionGraph::UPDMissionGraph(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	TabLabel = LOCTEXT("MissionDetailsLabel", "Details");
-	TabIcon = FSlateIcon(FAppStyle::GetAppStyleSetName(), "Kismet.Tabs.Components");
-
-	bIsSingleton = true;
-
-	ViewMenuDescription = LOCTEXT("MissionDetailsView", "Details");
-	ViewMenuTooltip = LOCTEXT("MissionDetailsView_ToolTip", "Show the details view");
+	bHaltRefresh = false;
 }
 
-TSharedRef<SWidget> FPDMissionDetailsFactory::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+void UPDMissionGraph::UpdateData(int32 UpdateFlags)
 {
-	check(MissionEditorPtr.IsValid());
-	return MissionEditorPtr.Pin()->SpawnProperties();
+	if (bHaltRefresh) { return; }
+
+	// Fix up the parent node pointers (which are marked transient for some reason)
+	for (UEdGraphNode* Node : Nodes)
+	{
+		UPDMissionGraphNode* MissionNode = Cast<UPDMissionGraphNode>(Node);
+		
+		if (MissionNode == nullptr) { continue; }
+		
+		for (UPDMissionGraphNode* SubNode : MissionNode->SubNodes)
+		{
+			if (SubNode == nullptr) { continue; }
+
+			SubNode->ParentNode = MissionNode;
+		}
+	}
 }
 
-FText FPDMissionDetailsFactory::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
+void UPDMissionGraph::OnCreated() {}
+void UPDMissionGraph::OnLoaded() {}
+void UPDMissionGraph::Initialize() {}
+
+
+// Consider use for later
+void UPDMissionGraph::Serialize(FArchive& Ar)
 {
-	return LOCTEXT("MissionDetailsTabTooltip", "The behavior tree details tab allows editing of the properties of behavior tree nodes");
+	Super::Serialize(Ar);
 }
 
-//////////////////////////////////////////////////////////////////////
-//
-
-FPDMissionSearchFactory::FPDMissionSearchFactory(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditorPtr)
-	: FWorkflowTabFactory(FPDMissionEditorTabs::SearchID, InMissionEditorPtr)
-	, MissionEditorPtr(InMissionEditorPtr)
+void UPDMissionGraph::UpdateClassData()
 {
-	TabLabel = LOCTEXT("MissionSearchLabel", "Search");
-	TabIcon = FSlateIcon(FAppStyle::GetAppStyleSetName(), "Kismet.Tabs.SearchResults");
-
-	bIsSingleton = true;
-
-	ViewMenuDescription = LOCTEXT("MissionSearchView", "Search");
-	ViewMenuTooltip = LOCTEXT("MissionSearchView_ToolTip", "Show the mission tree search tab");
+	TArray<int32> NodesToUpdate{};
+	TArray<int32> NodesToSkip{};
+	for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
+	{
+		Cast<UPDMissionGraphNode>(Nodes[Idx]) != nullptr ? NodesToUpdate.Emplace(Idx) : NodesToSkip.Emplace(Idx);
+	}
+	
+	TMap<UPDMissionGraphNode*,int32> SubNodesToUpdate{};
+	for (int32 NodeIdx : NodesToUpdate)
+	{
+		UPDMissionGraphNode* Node = Cast<UPDMissionGraphNode>(Nodes[NodeIdx]);
+		Node->UpdateNodeClassData();
+		TArray<TObjectPtr<UPDMissionGraphNode>>& SubNodes = Node->SubNodes;
+		for (int32 SubIdx = 0; SubNodes.IsValidIndex(SubIdx) && SubNodes[SubIdx] != nullptr ; SubIdx++)
+		{
+			SubNodes[SubIdx]->UpdateNodeClassData();
+		}
+	}
+	
+	for (int32 IdxOfInvalidNode : NodesToSkip)
+	{
+		// @todo remove invalid entries + log warnings or errors
+	}
 }
 
-TSharedRef<SWidget> FPDMissionSearchFactory::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+void UPDMissionGraph::OnNodesPasted(const FString& ImportStr)
 {
-	return MissionEditorPtr.Pin()->SpawnSearch();
+	// empty in base class
 }
 
-FText FPDMissionSearchFactory::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
+UEdGraphPin* UPDMissionGraph::FindGraphNodePin(UEdGraphNode* Node, EEdGraphPinDirection Dir)
 {
-	return LOCTEXT("MissionSearchTabTooltip", "The behavior tree search tab allows searching within behavior tree nodes");
+	UEdGraphPin* Pin = nullptr;
+	for (int32 Idx = 0, Limit = Node->Pins.Num(); Idx < Limit; Idx++)
+	{
+		if (Node->Pins[Idx]->Direction != Dir) { continue; }
+		
+		Pin = Node->Pins[Idx];
+		break;
+	}
+
+	return Pin;
 }
 
-//////////////////////////////////////////////////////////////////////
-//
-
-FPDMissionTreeEditorFactory::FPDMissionTreeEditorFactory(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditorPtr)
-	: FWorkflowTabFactory(FPDMissionEditorTabs::TreeEditorID, InMissionEditorPtr)
-	, MissionEditorPtr(InMissionEditorPtr)
+bool UPDMissionGraph::IsLocked() const
 {
-	TabLabel = LOCTEXT("MissionTreeEditorLabel", "Mission Tree");
-	TabIcon = FSlateIcon(FAppStyle::GetAppStyleSetName(), "Kismet.Tabs.Tree");
-
-	bIsSingleton = true;
-
-	ViewMenuDescription = LOCTEXT("MissionTreeEditorView", "Mission Tree");
-	ViewMenuTooltip = LOCTEXT("MissionTreeEditorView_ToolTip", "Mission Tree");
+	return bHaltRefresh;
 }
 
-TSharedRef<SWidget> FPDMissionTreeEditorFactory::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+void UPDMissionGraph::LockUpdates()
 {
-	return MissionEditorPtr.Pin()->SpawnMissionTree();
+	bHaltRefresh = true;
 }
 
-FText FPDMissionTreeEditorFactory::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
+void UPDMissionGraph::UnlockUpdates()
 {
-	return LOCTEXT("MissionTreeEditorTabTooltip", "");
+	bHaltRefresh = false;
+	UpdateData();
 }
 
-//////////////////////////////////////////////////////////////////////
-//
-
-FPDMissionGraphEditorFactory::FPDMissionGraphEditorFactory(const TSharedPtr<FFPDMissionGraphEditor>& InMissionEditorPtr, const FOnCreateGraphEditorWidget& CreateGraphEditorWidgetCallback)
-	: FDocumentTabFactoryForObjects<UEdGraph>(FPDMissionEditorTabs::GraphEditorID, InMissionEditorPtr)
-	, MissionEditorPtr(InMissionEditorPtr)
-	, OnCreateGraphEditorWidget(CreateGraphEditorWidgetCallback)
+void UPDMissionGraph::OnSubNodeDropped()
 {
+	NotifyGraphChanged();
 }
-
-void FPDMissionGraphEditorFactory::OnTabActivated(TSharedPtr<SDockTab> Tab) const
-{
-	check(MissionEditorPtr.IsValid());
-	const TSharedRef<SGraphEditor> GraphEditor = StaticCastSharedRef<SGraphEditor>(Tab->GetContent());
-	MissionEditorPtr.Pin()->OnGraphEditorFocused(GraphEditor);
-}
-
-void FPDMissionGraphEditorFactory::OnTabRefreshed(TSharedPtr<SDockTab> Tab) const
-{
-	const TSharedRef<SGraphEditor> GraphEditor = StaticCastSharedRef<SGraphEditor>(Tab->GetContent());
-	GraphEditor->NotifyGraphChanged();
-}
-
-TAttribute<FText> FPDMissionGraphEditorFactory::ConstructTabNameForObject(UEdGraph* DocumentID) const
-{
-	return TAttribute<FText>( FText::FromString( DocumentID->GetName() ) );
-}
-
-TSharedRef<SWidget> FPDMissionGraphEditorFactory::CreateTabBodyForObject(const FWorkflowTabSpawnInfo& Info, UEdGraph* DocumentID) const
-{
-	return OnCreateGraphEditorWidget.Execute(DocumentID);
-}
-
-const FSlateBrush* FPDMissionGraphEditorFactory::GetTabIconForObject(const FWorkflowTabSpawnInfo& Info, UEdGraph* DocumentID) const
-{
-	return FAppStyle::GetBrush("NoBrush");
-}
-
-void FPDMissionGraphEditorFactory::SaveState(TSharedPtr<SDockTab> Tab, TSharedPtr<FTabPayload> Payload) const
-{
-	check(MissionEditorPtr.IsValid());
-	check(MissionEditorPtr.Pin()->GetMissionData().DataTarget.DataTable);
-
-	const TSharedRef<SGraphEditor> GraphEditor = StaticCastSharedRef<SGraphEditor>(Tab->GetContent());
-
-	FVector2D ViewLocation;
-	float ZoomAmount;
-	GraphEditor->GetViewLocation(ViewLocation, ZoomAmount);
-
-	UEdGraph* Graph = FTabPayload_UObject::CastChecked<UEdGraph>(Payload);
-	MissionEditorPtr.Pin()->GetMissionData().LastEditedDocuments.Add(FEditedDocumentInfo(Graph, ViewLocation, ZoomAmount));
-	// MissionEditorPtr.Pin()->GetMissionData()->LastEditedDocuments.Add(FEditedDocumentInfo(Graph, ViewLocation, ZoomAmount));
-}
-
-#undef LOCTEXT_NAMESPACE
-
 
 /**
 Business Source License 1.1

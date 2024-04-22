@@ -1,8 +1,8 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
-#include "MissionGraph/Slate/PDSearchMission.h"
-#include "MissionGraph/FPDMissionEditor.h"
-#include "MissionGraph/PDMissionGraphNode.h"
+#include "Mission/Slate/PDSearchMission.h"
+#include "Mission/FPDMissionEditor.h"
+#include "Mission/Graph/PDMissionGraphNode.h"
 
 #include "EdGraph/EdGraph.h"
 #include "Framework/Views/TableViewMetadata.h"

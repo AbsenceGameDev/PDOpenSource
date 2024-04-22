@@ -1,78 +1,73 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
-#include "MissionGraph/PDMissionEditorToolbar.h"
-#include "Widgets/Layout/SBorder.h"
-#include "Widgets/Input/SComboButton.h"
-#include "Framework/MultiBox/MultiBoxBuilder.h"
-
-#include "PDMissionCommon.h"
-#include "MissionGraph/FPDMissionEditor.h"
+#pragma once
 
 
-#define LOCTEXT_NAMESPACE "MissionEditorToolbar"
+class FSlateRect;
+class UEdGraph;
 
-class SMissionModeSeparator : public SBorder
+class FMenuBuilder;
+class FConnectionDrawingPolicy;
+class FSlateWindowElementList;
+
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "PDMissionGraphTypes.h"
+#include "PDMissionGraphSchema.generated.h"
+
+class FSlateRect;
+class UEdGraph;
+
+UCLASS()
+class PDMISSIONEDITOR_API UPDMissionGraphSchema : public UEdGraphSchema
 {
+	GENERATED_UCLASS_BODY()
+
+	//~ Begin EdGraphSchema Interface
+	virtual void GetContextMenuActions(class UToolMenu* Menu, class UGraphNodeContextMenuContext* Context) const override;
+	virtual FLinearColor GetPinTypeColor(const FEdGraphPinType& PinType) const override;
+	virtual bool ShouldHidePinDefaultValue(UEdGraphPin* Pin) const override;
+	virtual class FConnectionDrawingPolicy* CreateConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float InZoomFactor, const FSlateRect& InClippingRect, class FSlateWindowElementList& InDrawElements, class UEdGraph* InGraphObj) const override;
+	virtual void BreakNodeLinks(UEdGraphNode& TargetNode) const override;
+	virtual void BreakPinLinks(UEdGraphPin& TargetPin, bool bSendsNodeNotification) const override;
+	virtual void BreakSinglePinLink(UEdGraphPin* SourcePin, UEdGraphPin* TargetPin) const override;
+	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateCommentAction() const override;
+	virtual int32 GetNodeSelectionCount(const UEdGraph* Graph) const override;
+	//~ End EdGraphSchema Interface
+
+	virtual void GetGraphNodeContextActions(FGraphContextMenuBuilder& ContextMenuBuilder, int32 SubNodeFlags) const;
+	virtual UClass* GetSubNodeClass(EMissionGraphSubNodeType SubNodeFlag) const;
+	void AddAndSetupNodeAction(FGraphContextMenuBuilder& ContextMenuBuilder, FCategorizedGraphActionListBuilder& ListBuilder, const TPair<UClass*, FPDMissionNodeData>& NodePair) const;
+
+protected:
+
 public:
-	SLATE_BEGIN_ARGS(SMissionModeSeparator) {}
-	SLATE_END_ARGS()
+	//~ Begin EdGraphSchema Interface
+	virtual void CreateDefaultNodesForGraph(UEdGraph& Graph) const override;
+	virtual void GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
+	virtual const FPinConnectionResponse CanCreateConnection(const UEdGraphPin* A, const UEdGraphPin* B) const override;
+	virtual const FPinConnectionResponse CanMergeNodes(const UEdGraphNode* A, const UEdGraphNode* B) const override;
+	virtual void OnPinConnectionDoubleCicked(UEdGraphPin* PinA, UEdGraphPin* PinB, const FVector2D& GraphPosition) const override;
+	bool GetPropertyCategoryInfo(const FProperty* TestProperty, FName& OutCategory, FName& OutSubCategory, UObject*& OutSubCategoryObject,
+	                             bool& bOutIsWeakPointer);
+	bool ConvertPropertyToPinType(const FProperty* Property, FEdGraphPinType& TypeOut) const;
+	virtual bool IsCacheVisualizationOutOfDate(int32 InVisualizationCacheID) const override;
+	virtual int32 GetCurrentVisualizationCacheID() const override;
+	virtual void ForceVisualizationCacheClear() const override;
+	//~ End EdGraphSchema Interface
 
-	void Construct(const FArguments& InArg)
-	{
-		SBorder::Construct(
-			SBorder::FArguments()
-			.BorderImage(FAppStyle::GetBrush("BlueprintEditor.PipelineSeparator"))
-			.Padding(0.0f)
-			);
-	}
+protected:
+	void GatherNativeClass(TMap<UClass*, FPDMissionNodeData>& NodeClasses, UClass* TestClass) const;
+	void AddMissionNodeOptions(const FString& CategoryName, FGraphContextMenuBuilder& ContextMenuBuilder, const FPDMissionNodeHandle& NodeData) const;
 
-	// SWidget interface
-	virtual FVector2D ComputeDesiredSize(float) const override
-	{
-		constexpr float Height = 20.0f;
-		constexpr float Thickness = 16.0f;
-		return FVector2D(Thickness, Height);
-	}
-	// End of SWidget interface
+private:
+	// ID for checking dirty status of node titles against, increases whenever 
+	static int32 CurrentCacheRefreshID;
 };
 
 
-void FPDMissionEditorToolbar::AddMissionEditorToolbar(TSharedPtr<FExtender> Extender)
-{
-	check(MissionEditor.IsValid());
-	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
-
-	const TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
-	ToolbarExtender->AddToolBarExtension("Asset", EExtensionHook::After, MissionEditorPtr->GetToolkitCommands(), FToolBarExtensionDelegate::CreateSP( this, &FPDMissionEditorToolbar::FillMissionEditorToolbar ));
-	MissionEditorPtr->AddToolbarExtender(ToolbarExtender);
-}
-
-void FPDMissionEditorToolbar::FillMissionEditorToolbar(FToolBarBuilder& ToolbarBuilder)
-{
-	check(MissionEditor.IsValid());
-	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
-
-	if (MissionEditorPtr->DebugHandler.IsDebuggerReady() == false && MissionEditorPtr->GetCurrentMode() == FFPDMissionGraphEditor::GraphViewMode)
-	{
-		ToolbarBuilder.BeginSection("Mission");
-		{
-			ToolbarBuilder.AddComboButton(
-				FUIAction(
-					FExecuteAction(),
-					FCanExecuteAction::CreateSP(MissionEditorPtr.Get(), &FFPDMissionGraphEditor::CanCreateNewMissionNodes),
-					FIsActionChecked()
-					), 
-				FOnGetContent::CreateSP(MissionEditorPtr.Get(), &FFPDMissionGraphEditor::HandleCreateNewStructMenu, FPDMissionState::StaticStruct()),
-				LOCTEXT("NewMission_Label", "New Mission"),
-				LOCTEXT("NewMission_ToolTip", "Create a new mission node from a given mission state"),
-				FSlateIcon(FAppStyle::GetAppStyleSetName(), "BTEditor.Graph.NewDecorator")
-			);
-		}
-		ToolbarBuilder.EndSection();
-	}
-}
-
-#undef LOCTEXT_NAMESPACE
 
 /**
 Business Source License 1.1

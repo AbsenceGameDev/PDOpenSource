@@ -1,33 +1,26 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
-#include "MissionGraph/Slate/PDPinManager.h"
+#include "Mission/Slate/PDPinManager.h"
+#include "Mission/Graph/PDMissionGraphSchema.h"
 
 #include "ObjectEditorUtils.h"
 #include "PropertyCustomizationHelpers.h"
 #include "Engine/UserDefinedStruct.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "MissionGraph/PDMissionGraphSchema.h"
 #include "UObject/ObjectSaveContext.h"
 #include "UserDefinedStructure/UserDefinedStructEditorData.h"
 
 
 #define LOCTEXT_NAMESPACE "FMissionTreeNode"
 
-
-
 UPDMissionNode_MakeStruct::FMakeStructPinManager::FMakeStructPinManager(const uint8* InSampleStructMemory)
 	: FPDOptionalPinManager()
 	, SampleStructMemory(InSampleStructMemory)
-	, bHasAdvancedPins(false)
-{
-}
+	, bHasAdvancedPins(false) {}
 
 UPDMissionNode_MakeStruct::UPDMissionNode_MakeStruct(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, bMadeAfterOverridePinRemoval(false)
-{
-}
-
+	, bMadeAfterOverridePinRemoval(false) {}
 
 bool PropertyValueToString_Direct(const FProperty* Property, const uint8* DirectValue, FString& OutForm, UObject* OwningObject, int32 PortFlags)
 {

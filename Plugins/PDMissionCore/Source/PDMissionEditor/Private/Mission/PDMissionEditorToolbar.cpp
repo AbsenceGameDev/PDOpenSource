@@ -1,131 +1,78 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
-#include "MissionGraph/PDMissionGraph.h"
-#include "MissionGraph/PDMissionGraphNode.h"
-#include "PDMissionEditor.h"
-#include "PDMissionGraphTypes.h"
+#include "Mission/PDMissionEditorToolbar.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
-#include "Containers/Array.h"
-#include "Containers/EnumAsByte.h"
+#include "PDMissionCommon.h"
+#include "Mission/FPDMissionEditor.h"
 
-#include "EdGraph/EdGraphPin.h"
-#include "EdGraph/EdGraphSchema.h"
 
-#include "HAL/PlatformMath.h"
-#include "Logging/LogCategory.h"
-#include "Logging/LogMacros.h"
+#define LOCTEXT_NAMESPACE "MissionEditorToolbar"
 
-#include "Serialization/Archive.h"
-#include "Templates/Casts.h"
-#include "Trace/Detail/Channel.h"
-
-#include "UObject/Object.h"
-#include "UObject/ObjectPtr.h"
-#include "UObject/Package.h"
-#include "UObject/UObjectHash.h"
-
-UPDMissionGraph::UPDMissionGraph(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
+class SMissionModeSeparator : public SBorder
 {
-	bHaltRefresh = false;
+public:
+	SLATE_BEGIN_ARGS(SMissionModeSeparator) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArg)
+	{
+		SBorder::Construct(
+			SBorder::FArguments()
+			.BorderImage(FAppStyle::GetBrush("BlueprintEditor.PipelineSeparator"))
+			.Padding(0.0f)
+			);
+	}
+
+	// SWidget interface
+	virtual FVector2D ComputeDesiredSize(float) const override
+	{
+		constexpr float Height = 20.0f;
+		constexpr float Thickness = 16.0f;
+		return FVector2D(Thickness, Height);
+	}
+	// End of SWidget interface
+};
+
+
+void FPDMissionEditorToolbar::AddMissionEditorToolbar(TSharedPtr<FExtender> Extender)
+{
+	check(MissionEditor.IsValid());
+	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
+
+	const TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
+	ToolbarExtender->AddToolBarExtension("Asset", EExtensionHook::After, MissionEditorPtr->GetToolkitCommands(), FToolBarExtensionDelegate::CreateSP( this, &FPDMissionEditorToolbar::FillMissionEditorToolbar ));
+	MissionEditorPtr->AddToolbarExtender(ToolbarExtender);
 }
 
-void UPDMissionGraph::UpdateData(int32 UpdateFlags)
+void FPDMissionEditorToolbar::FillMissionEditorToolbar(FToolBarBuilder& ToolbarBuilder)
 {
-	if (bHaltRefresh) { return; }
+	check(MissionEditor.IsValid());
+	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
 
-	// Fix up the parent node pointers (which are marked transient for some reason)
-	for (UEdGraphNode* Node : Nodes)
+	if (MissionEditorPtr->DebugHandler.IsDebuggerReady() == false && MissionEditorPtr->GetCurrentMode() == FFPDMissionGraphEditor::GraphViewMode)
 	{
-		UPDMissionGraphNode* MissionNode = Cast<UPDMissionGraphNode>(Node);
-		
-		if (MissionNode == nullptr) { continue; }
-		
-		for (UPDMissionGraphNode* SubNode : MissionNode->SubNodes)
+		ToolbarBuilder.BeginSection("Mission");
 		{
-			if (SubNode == nullptr) { continue; }
-
-			SubNode->ParentNode = MissionNode;
+			ToolbarBuilder.AddComboButton(
+				FUIAction(
+					FExecuteAction(),
+					FCanExecuteAction::CreateSP(MissionEditorPtr.Get(), &FFPDMissionGraphEditor::CanCreateNewMissionNodes),
+					FIsActionChecked()
+					), 
+				FOnGetContent::CreateSP(MissionEditorPtr.Get(), &FFPDMissionGraphEditor::HandleCreateNewStructMenu, FPDMissionState::StaticStruct()),
+				LOCTEXT("NewMission_Label", "New Mission"),
+				LOCTEXT("NewMission_ToolTip", "Create a new mission node from a given mission state"),
+				FSlateIcon(FAppStyle::GetAppStyleSetName(), "BTEditor.Graph.NewDecorator")
+			);
 		}
+		ToolbarBuilder.EndSection();
 	}
 }
 
-void UPDMissionGraph::OnCreated() {}
-void UPDMissionGraph::OnLoaded() {}
-void UPDMissionGraph::Initialize() {}
-
-
-// Consider use for later
-void UPDMissionGraph::Serialize(FArchive& Ar)
-{
-	Super::Serialize(Ar);
-}
-
-void UPDMissionGraph::UpdateClassData()
-{
-	TArray<int32> NodesToUpdate{};
-	TArray<int32> NodesToSkip{};
-	for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
-	{
-		Cast<UPDMissionGraphNode>(Nodes[Idx]) != nullptr ? NodesToUpdate.Emplace(Idx) : NodesToSkip.Emplace(Idx);
-	}
-	
-	TMap<UPDMissionGraphNode*,int32> SubNodesToUpdate{};
-	for (int32 NodeIdx : NodesToUpdate)
-	{
-		UPDMissionGraphNode* Node = Cast<UPDMissionGraphNode>(Nodes[NodeIdx]);
-		Node->UpdateNodeClassData();
-		TArray<TObjectPtr<UPDMissionGraphNode>>& SubNodes = Node->SubNodes;
-		for (int32 SubIdx = 0; SubNodes.IsValidIndex(SubIdx) && SubNodes[SubIdx] != nullptr ; SubIdx++)
-		{
-			SubNodes[SubIdx]->UpdateNodeClassData();
-		}
-	}
-	
-	for (int32 IdxOfInvalidNode : NodesToSkip)
-	{
-		// @todo remove invalid entries + log warnings or errors
-	}
-}
-
-void UPDMissionGraph::OnNodesPasted(const FString& ImportStr)
-{
-	// empty in base class
-}
-
-UEdGraphPin* UPDMissionGraph::FindGraphNodePin(UEdGraphNode* Node, EEdGraphPinDirection Dir)
-{
-	UEdGraphPin* Pin = nullptr;
-	for (int32 Idx = 0, Limit = Node->Pins.Num(); Idx < Limit; Idx++)
-	{
-		if (Node->Pins[Idx]->Direction != Dir) { continue; }
-		
-		Pin = Node->Pins[Idx];
-		break;
-	}
-
-	return Pin;
-}
-
-bool UPDMissionGraph::IsLocked() const
-{
-	return bHaltRefresh;
-}
-
-void UPDMissionGraph::LockUpdates()
-{
-	bHaltRefresh = true;
-}
-
-void UPDMissionGraph::UnlockUpdates()
-{
-	bHaltRefresh = false;
-	UpdateData();
-}
-
-void UPDMissionGraph::OnSubNodeDropped()
-{
-	NotifyGraphChanged();
-}
+#undef LOCTEXT_NAMESPACE
 
 /**
 Business Source License 1.1

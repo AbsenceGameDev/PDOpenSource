@@ -1,59 +1,88 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
-#include "MissionGraph/PDMissionBuilder.h"
-#include "MissionGraph/PDMissionGraph.h"
-#include "MissionGraph/PDMissionGraphNode.h"
-#include "MissionGraph/PDMissionGraphSchema.h"
+#include "Mission/PDMissionEditorModes.h"
+#include "Mission/FPDMissionEditor.h"
+#include "Mission/PDMissionEditorToolbar.h"
+#include "Mission/PDMissionTabFactories.h"
 #include "PDMissionGraphTypes.h"
 
-#include "Kismet2/BlueprintEditorUtils.h"
-#include "Stats/StatsMisc.h"
-
-#include "Misc/MessageDialog.h"
-
-
-#define LOCTEXT_NAMESPACE "FPDMissionBuilder"
-
-UPDMissionGraph* FPDMissionBuilder::CreateNewGraph(const FPDMissionNodeHandle& NodeData, FName GraphName)
+FMissionEditorApplicationMode_GraphView::FMissionEditorApplicationMode_GraphView(TSharedPtr<FFPDMissionGraphEditor> InMissionEditor)
+	: FApplicationMode(FFPDMissionGraphEditor::GraphViewMode, FFPDMissionGraphEditor::GetLocalizedMode)
 {
-	UPDMissionGraph* NewGraph = CastChecked<UPDMissionGraph>(FBlueprintEditorUtils::CreateNewGraph(static_cast<UDataTable*>(NodeData.DataTarget.DataTable), GraphName, UPDMissionGraph::StaticClass(), UPDMissionGraphSchema::StaticClass()));
+	MissionEditor = InMissionEditor;
 
-	const UPDMissionGraphSchema* Schema = Cast<UPDMissionGraphSchema>(NewGraph->GetSchema());
-	Schema->CreateDefaultNodesForGraph(*NewGraph);
+	MissionEditorTabFactories.RegisterFactory(MakeShareable(new FPDMissionDetailsFactory(InMissionEditor)));
+	MissionEditorTabFactories.RegisterFactory(MakeShareable(new FPDMissionSearchFactory(InMissionEditor)));
+	MissionEditorTabFactories.RegisterFactory(MakeShareable(new FPDMissionTreeEditorFactory(InMissionEditor)));
 
-	NewGraph->OnCreated();
-
-	return NewGraph;
+	TabLayout = FTabManager::NewLayout( "Standalone_MissionEditor_GraphView_Layout_v4" )
+	->AddArea
+	(
+		FTabManager::NewPrimaryArea()
+		->SetOrientation(Orient_Horizontal)
+		->Split
+		(
+			FTabManager::NewStack()
+			->SetSizeCoefficient(0.7f)
+			->AddTab(FPDMissionEditorTabs::GraphEditorID, ETabState::ClosedTab)
+		)
+		->Split
+		(
+			FTabManager::NewSplitter()
+			->SetOrientation(Orient_Vertical)
+			->SetSizeCoefficient(0.3f)
+			->Split
+			(
+				FTabManager::NewStack()
+				->SetSizeCoefficient(0.6f)
+				->AddTab(FPDMissionEditorTabs::GraphDetailsID, ETabState::OpenedTab)
+				->AddTab(FPDMissionEditorTabs::SearchID, ETabState::ClosedTab)
+			)
+ 			->Split
+ 			(
+ 				FTabManager::NewStack()
+ 				->SetSizeCoefficient(0.4f)
+ 				->AddTab(FPDMissionEditorTabs::TreeEditorID, ETabState::OpenedTab)
+ 			)
+		)
+	);
+	
+	// InMissionEditor->GetToolbarBuilder()->AddDebuggerToolbar(ToolbarExtender); // @todo: debugger
+	InMissionEditor->GetToolbarBuilder()->AddMissionEditorToolbar(ToolbarExtender);
 }
 
-
-UPDMissionGraph* FPDMissionBuilder::CreateNewGraph(UDataTable* MissionTable, FName GraphName)
+void FMissionEditorApplicationMode_GraphView::RegisterTabFactories(TSharedPtr<FTabManager> InTabManager)
 {
-	UPDMissionGraph* NewGraph = CastChecked<UPDMissionGraph>(FBlueprintEditorUtils::CreateNewGraph(MissionTable, GraphName, UPDMissionGraph::StaticClass(), UPDMissionGraphSchema::StaticClass()));
-	const UPDMissionGraphSchema* Schema = Cast<UPDMissionGraphSchema>(NewGraph->GetSchema());
-	Schema->CreateDefaultNodesForGraph(*NewGraph);
+	check(MissionEditor.IsValid());
+	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
+	
+	MissionEditorPtr->RegisterToolbarTab(InTabManager.ToSharedRef());
 
-	NewGraph->OnCreated();
+	// Mode-specific setup
+	MissionEditorPtr->PushTabFactories(MissionEditorTabFactories);
 
-	return NewGraph;
+	FApplicationMode::RegisterTabFactories(InTabManager);
 }
 
-void FPDMissionBuilder::ForeachConnectedOutgoingMissionNode(UEdGraphPin* Pin, TFunctionRef<void(UPDMissionGraphNode*)> Predicate)
+void FMissionEditorApplicationMode_GraphView::PreDeactivateMode()
 {
-	for (const UEdGraphPin* RemotePin : Pin->LinkedTo)
-	{
-		if (const UPDMissionGraphNode_Knot* Knot = Cast<UPDMissionGraphNode_Knot>(RemotePin->GetOwningNode()))
-		{
-			ForeachConnectedOutgoingMissionNode(Knot->GetOutputPin(), Predicate);
-		}
-		else if (UPDMissionGraphNode* RemoteNode = Cast<UPDMissionGraphNode>(RemotePin->GetOwningNode()))
-		{
-			Predicate(RemoteNode);
-		}
-	}
+	FApplicationMode::PreDeactivateMode();
+
+	check(MissionEditor.IsValid());
+	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
+	
+	MissionEditorPtr->SaveEditedObjectState();
 }
 
-#undef LOCTEXT_NAMESPACE
+void FMissionEditorApplicationMode_GraphView::PostActivateMode()
+{
+	// Reopen any documents that were open when the blueprint was last saved
+	check(MissionEditor.IsValid());
+	const TSharedPtr<FFPDMissionGraphEditor> MissionEditorPtr = MissionEditor.Pin();
+	MissionEditorPtr->RegenerateMissionGraph();
+
+	FApplicationMode::PostActivateMode();
+}
 
 /**
 Business Source License 1.1

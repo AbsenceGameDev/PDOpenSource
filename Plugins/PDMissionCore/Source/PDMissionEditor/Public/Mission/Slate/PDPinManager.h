@@ -3,7 +3,8 @@
 
 #include <CoreMinimal.h>
 
-#include "MissionGraph/PDMissionGraphNode.h"
+
+#include "Mission/Graph/PDMissionGraphNode.h"
 #include "PDPinManager.generated.h"
 
 // Manager to build or refresh a list of optional pins
@@ -38,15 +39,6 @@ protected:
 	virtual void PostRemovedOldPin(FOptionalPinFromProperty& Record, int32 ArrayIndex, FProperty* Property, uint8* PropertyAddress, uint8* DefaultPropertyAddress) const {}
 	void RebuildProperty(FProperty* TestProperty, FName CategoryName, TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, TMap<FName, FOldOptionalPinSettings>& OldSettings);
 };
-
-
-
-
-
-
-
-
-
 
 
 
