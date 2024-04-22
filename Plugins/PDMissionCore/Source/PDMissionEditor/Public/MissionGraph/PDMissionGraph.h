@@ -23,23 +23,15 @@ class PDMISSIONEDITOR_API UPDMissionGraph : public UEdGraph
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY()
-	int32 GraphVersion;
-
 	virtual void OnCreated();
 	virtual void OnLoaded();
 	virtual void Initialize();
 
 	virtual void UpdateData(int32 UpdateFlags = 0);
-	virtual void UpdateVersion();
-	virtual void MarkVersion();
 
 	virtual void OnSubNodeDropped();
 	virtual void OnNodesPasted(const FString& ImportStr);
-
-	bool UpdateUnknownNodeClasses();
-	void UpdateDeprecatedClasses();
-	void RemoveOrphanedNodes();
+	
 	void UpdateClassData();
 
 	bool IsLocked() const;
@@ -56,10 +48,6 @@ protected:
 	 *  flag allows freezing update during heavy changes like pasting new nodes 
 	 */
 	uint32 bHaltRefresh : 1;
-
-	virtual void CollectAllNodeInstances(TSet<UObject*>& NodeInstances);
-	virtual bool CanRemoveNestedObject(UObject* TestObject) const;
-	virtual void OnNodeInstanceRemoved(UObject* NodeInstance);
 
 	UEdGraphPin* FindGraphNodePin(UEdGraphNode* Node, EEdGraphPinDirection Dir);
 };

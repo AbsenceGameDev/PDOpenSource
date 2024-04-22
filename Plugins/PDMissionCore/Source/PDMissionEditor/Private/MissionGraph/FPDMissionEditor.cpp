@@ -884,9 +884,6 @@ void FFPDMissionGraphEditor::OnFinishedChangingProperties(const FPropertyChanged
 	{
 		FocusedGraphEd->GetCurrentGraph()->GetSchema()->ForceVisualizationCacheClear();
 	}
-
-	// @todo: Review/remove/move
-	// FPDMissionBuilder::RebuildData(MissionData);
 }
 
 void FFPDMissionGraphEditor::CreateInternalWidgets()
@@ -964,9 +961,6 @@ void FFPDMissionGraphEditor::OnClassListUpdated()
 	UPDMissionGraph* MissionGraph = Cast<UPDMissionGraph>(CurrentGraphEditor->GetCurrentGraph());
 	if (MissionGraph == nullptr) { return; }
 	
-	const bool bUpdated = MissionGraph->UpdateUnknownNodeClasses();
-	if (bUpdated == false) { return; }
-
 	const FGraphPanelSelectionSet CurrentSelection = GetSelectedNodes();
 	OnSelectedNodesChanged(CurrentSelection);
 	MissionGraph->UpdateData();

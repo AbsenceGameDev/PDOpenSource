@@ -16,6 +16,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Factories/DataTableFactory.h"
 #include "MissionGraph/FPDMissionEditor.h"
+#include "MissionGraph/PDMissionBuilder.h"
 #include "MissionGraph/PDMissionGraph.h"
 #include "MissionGraph/PDMissionGraphSchema.h"
 #include "MissionGraph/Slate/PDMissionView.h"
@@ -193,7 +194,8 @@ TSharedRef<SDockTab> FPDMissionEditorModule::OnSpawnPluginTab(const FSpawnTabArg
 	}
 	else
 	{
-		GraphObj = NewObject<UPDMissionGraph>();
+		GraphObj = FPDMissionBuilder::CreateNewGraph(Tables[0], "MissionEditor");
+		// GraphObj =  NewObject<UPDMissionGraph>();
 	}
 	
 	if (GraphObj == nullptr)
@@ -218,7 +220,7 @@ TSharedRef<SDockTab> FPDMissionEditorModule::OnSpawnPluginTab(const FSpawnTabArg
 	// Copy any data if necessary
 	if (EditingTable->GetRowMap().Num() >= 0)
 	{
-		for (const UDataTable* TableToCopy : MissionSubsystem->Utility.GetAllTables())
+		for (const UDataTable* TableToCopy : Tables)
 		{
 			CopyMissionTable(TableToCopy, true);
 		}

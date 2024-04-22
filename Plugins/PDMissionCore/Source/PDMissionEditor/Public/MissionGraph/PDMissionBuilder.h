@@ -16,14 +16,10 @@ struct PDMISSIONEDITOR_API FPDMissionBuilder : public TSharedFromThis<FPDMission
 {
 	FPDMissionBuilder() {}
 public:
-	static int32 GetNumGraphs(const FPDMissionNodeHandle& NodeData);
-	static UPDMissionGraph* GetGraphFromBank(FPDMissionNodeHandle& NodeData, int32 Index);
-	static void RebuildData(FPDMissionNodeHandle& NodeData);
-
-private:
-
+	
 	// Creates a new graph but does not add it
 	static UPDMissionGraph* CreateNewGraph(const FPDMissionNodeHandle& NodeData, FName GraphName);
+	static UPDMissionGraph* CreateNewGraph(UDataTable* MissionTable, FName GraphName);
 
 	// Skips over knots.
 	static void ForeachConnectedOutgoingMissionNode(UEdGraphPin* Pin, TFunctionRef<void(UPDMissionGraphNode*)> Predicate);

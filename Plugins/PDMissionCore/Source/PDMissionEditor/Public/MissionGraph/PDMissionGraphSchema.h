@@ -161,7 +161,7 @@ class PDMISSIONEDITOR_API UPDMissionGraphSchema : public UEdGraphSchema
 	//~ End EdGraphSchema Interface
 
 	virtual void GetGraphNodeContextActions(FGraphContextMenuBuilder& ContextMenuBuilder, int32 SubNodeFlags) const;
-	virtual void GetSubNodeClasses(int32 SubNodeFlags, TArray<FPDMissionNodeData>& ClassData, UClass*& GraphNodeClass) const;
+	virtual UClass* GetSubNodeClass(EMissionGraphSubNodeType SubNodeFlag) const;
 
 protected:
 
@@ -190,6 +190,8 @@ private:
 	// ID for checking dirty status of node titles against, increases whenever 
 	static int32 CurrentCacheRefreshID;
 };
+
+
 
 /**
 Business Source License 1.1

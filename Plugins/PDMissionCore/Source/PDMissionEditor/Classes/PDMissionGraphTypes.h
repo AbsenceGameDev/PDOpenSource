@@ -37,7 +37,7 @@ struct PDMISSIONEDITOR_API FPDMissionNodeData
 	GENERATED_USTRUCT_BODY()
 
 	FPDMissionNodeData(): bIsHidden(0), bHideParent(0) {}
-	FPDMissionNodeData(UClass* InStruct, const FString& InDeprecatedMessage);
+	FPDMissionNodeData(UClass* InStruct);
 	FPDMissionNodeData(const FTopLevelAssetPath& InGeneratedClassPath, UClass* InStruct);
 	FPDMissionNodeData(const FString& InAssetName, const FString& InGeneratedClassPackage, const FString& InClassName, UClass* InStruct);
 
@@ -47,8 +47,7 @@ struct PDMISSIONEDITOR_API FPDMissionNodeData
 	FString GetDisplayName() const;
 	FText GetTooltip() const;
 	UClass* GetClass(bool bSilent = false);
-
-	FORCEINLINE FString GetDeprecatedMessage() const { return DeprecatedMessage; }
+	
 	FORCEINLINE FString GetPackageName() const { return GeneratedPackage; }
 
 	bool operator==(const FPDMissionNodeData& Other) const;
@@ -80,9 +79,6 @@ private:
 	/** User-defined category for this class */
 	UPROPERTY()
 	FText Category;
-
-	/** message for deprecated class */
-	FString DeprecatedMessage;
 };
 
 /** @brief Editor tab IDs */
@@ -108,10 +104,6 @@ struct PDMISSIONEDITOR_API FPDMissionNodeHandle
 	
 	UPROPERTY()
 	TArray<FEditedDocumentInfo> LastEditedDocuments;
-	
-	// 'Source code' graphs (of type UPDMissionGraph)
-	UPROPERTY()
-	TArray<TObjectPtr<UEdGraph>> SourceGraphs;
 };
 
 
@@ -159,7 +151,7 @@ struct PDMISSIONEDITOR_API FPDMissionGraphTypes
 {
 	GENERATED_USTRUCT_BODY()
 
-	static const FName PinCategory_Name;
+	static const FName PinCategory_MissionName;
 	static const FName PinCategory_String;
 	static const FName PinCategory_Text;
 	static const FName PinCategory_MissionRow;
@@ -227,16 +219,20 @@ namespace MissionTreeColors
 /** @brief (Node-)Connectivity policy, how will nodes hook up to eachother */
 class FPDMissionGraphConnectionDrawingPolicy : public FConnectionDrawingPolicy
 {
-protected:
-	UEdGraph* GraphObj;
-	TMap<UEdGraphNode*, int32> NodeWidgetMap;
-
 public:
 	FPDMissionGraphConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj);
 
-	// FConnectionDrawingPolicy interface 
+	// FConnectionDrawingPolicy interface
 	virtual void DetermineWiringStyle(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ FConnectionParams& Params) override;
 	virtual void Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& PinGeometries, FArrangedChildren& ArrangedNodes) override;
+	virtual void DetermineLinkGeometry(
+		FArrangedChildren& ArrangedNodes, 
+		TSharedRef<SWidget>& OutputPinWidget,
+		UEdGraphPin* OutputPin,
+		UEdGraphPin* InputPin,
+		/*out*/ FArrangedWidget*& StartWidgetGeometry,
+		/*out*/ FArrangedWidget*& EndWidgetGeometry
+		) override;
 	virtual void DrawSplineWithArrow(const FGeometry& StartGeom, const FGeometry& EndGeom, const FConnectionParams& Params) override;
 	virtual void DrawSplineWithArrow(const FVector2D& StartPoint, const FVector2D& EndPoint, const FConnectionParams& Params) override;
 	virtual void DrawPreviewConnector(const FGeometry& PinGeometry, const FVector2D& StartPoint, const FVector2D& EndPoint, UEdGraphPin* Pin) override;
@@ -245,7 +241,19 @@ public:
 
 protected:
 	void Internal_DrawLineWithArrow(const FVector2D& StartAnchorPoint, const FVector2D& EndAnchorPoint, const FConnectionParams& Params);
+
+protected:
+	UEdGraph* GraphObj;
+
+	TMap<UEdGraphNode*, int32> NodeWidgetMap;	
+
+	// Draw line-based circle (no solid filling)
+	void DrawCircle(const FVector2D& Center, float Radius, const FLinearColor& Color, const int NumLineSegments);
+	TArray<FVector2D> TempPoints;
+
+	static constexpr float RelinkHandleHoverRadius = 20.0f;
 };
+
 
 #if UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_2
 #include "CoreMinimal.h"

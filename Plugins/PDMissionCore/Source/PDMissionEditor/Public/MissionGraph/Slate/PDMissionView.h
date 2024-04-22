@@ -1,16 +1,44 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 #pragma once
 
-// #include "SlateBasics.h"
-#include "SGraphPin.h"
-#include "BlueprintUtilities.h"
-#include "EdGraphUtilities.h"
-#include "GameplayTagContainer.h"
-#include "Widgets/SCompoundWidget.h"
 
+#include "CoreMinimal.h"
+
+#include "SGraphPin.h"
+#include "SGraphNode.h"
+#include "SNodePanel.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+
+#include "EdGraphUtilities.h"
+#include "Layout/Visibility.h"
+#include "Styling/SlateColor.h"
+
+#include "GameplayTagContainer.h"
+#include "BlueprintUtilities.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Misc/NotifyHook.h"
+#include "Templates/SharedPointer.h"
+
+#include "Math/Color.h"
+#include "Math/Vector2D.h"
+
+#include "HAL/Platform.h"
+#include "Input/DragAndDrop.h"
+#include "Input/Reply.h"
+#include "Editor/GraphEditor/Private/DragNode.h"
+#include "Internationalization/Text.h"
+#include "Containers/Array.h"
+#include "Containers/Map.h"
+#include "Containers/UnrealString.h"
+
+class UPDMissionTransitionNode;
+class STextEntryPopup;
 class ITableRow;
 class STableViewBase;
 class UEdGraphNode;
+
 namespace ESelectInfo { enum Type : int; }
 template <typename ItemType> class STreeView;
 
@@ -99,7 +127,137 @@ private:
 };
 
 
-class SPDAttributePin : public SGraphPin
+class SGraphPanel;
+class SToolTip;
+class UPDMissionGraphNode;
+
+class FDragMissionGraphNode : public FDragNode
+{
+public:
+	DRAG_DROP_OPERATOR_TYPE(FDragMissionGraphNode, FDragNode)
+
+	static TSharedRef<FDragMissionGraphNode> New(const TSharedRef<SGraphPanel>& InGraphPanel, const TSharedRef<SGraphNode>& InDraggedNode);
+	static TSharedRef<FDragMissionGraphNode> New(const TSharedRef<SGraphPanel>& InGraphPanel, const TArray< TSharedRef<SGraphNode> >& InDraggedNodes);
+
+	UPDMissionGraphNode* GetDropTargetNode() const;
+
+	double StartTime;
+
+protected:
+	typedef FDragNode Super;
+};
+
+class PDMISSIONEDITOR_API SMissionGraphNode final : public SGraphNode
+{
+public:
+	SLATE_BEGIN_ARGS(SMissionGraphNode){}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, UPDMissionGraphNode* InNode);
+
+	//~ Begin SGraphNode Interface
+	virtual TSharedPtr<SToolTip> GetComplexTooltip() override;
+	virtual void OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+	virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+	virtual FReply OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+	virtual void OnDragLeave(const FDragDropEvent& DragDropEvent) override;
+	virtual FReply OnMouseMove(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent) override;
+	virtual void SetOwner(const TSharedRef<SGraphPanel>& OwnerPanel) override;
+	virtual void AddPin(const TSharedRef<SGraphPin>& PinToAdd) override;
+	//~ End SGraphNode Interface
+
+	/** handle mouse down on the node */
+	FReply OnMouseDown(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent);
+
+	/** adds subnode widget inside current node */
+	virtual void AddSubNode(TSharedPtr<SGraphNode> SubNodeWidget);
+
+	/** gets decorator or service node if one is found under mouse cursor */
+	TSharedPtr<SGraphNode> GetSubNodeUnderCursor(const FGeometry& WidgetGeometry, const FPointerEvent& MouseEvent);
+
+	/** gets drag over marker visibility */
+	EVisibility GetDragOverMarkerVisibility() const;
+
+	/** sets drag marker visible or collapsed on this node */
+	void SetDragMarker(bool bEnabled);
+
+protected:
+	TArray< TSharedPtr<SGraphNode> > SubNodes;
+
+	uint32 bDragMarkerVisible : 1;
+	
+	
+	virtual FText GetTitle() const;
+	virtual FText GetDescription() const;
+	virtual EVisibility GetDescriptionVisibility() const;
+
+	virtual FText GetPreviewCornerText() const;
+	virtual const FSlateBrush* GetNameIcon() const;
+};
+
+class SGraphNodeMissionTransition : public SGraphNode
+{
+public:
+	SLATE_BEGIN_ARGS(SGraphNodeMissionTransition){}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, UPDMissionTransitionNode* InNode);
+
+	// SNodePanel::SNode interface
+	virtual void GetNodeInfoPopups(FNodeInfoContext* Context, TArray<FGraphInformationPopupInfo>& Popups) const override;
+	virtual void MoveTo(const FVector2D& NewPosition, FNodeSet& NodeFilter, bool bMarkDirty = true) override;
+	virtual bool RequiresSecondPassLayout() const override;
+	virtual void PerformSecondPassLayout(const TMap< UObject*, TSharedRef<SNode> >& NodeToWidgetLookup) const override;
+	// End of SNodePanel::SNode interface
+
+	// SGraphNode interface
+	virtual void UpdateGraphNode() override;
+	virtual TSharedPtr<SToolTip> GetComplexTooltip() override;
+	// End of SGraphNode interface
+
+	// SWidget interface
+	void OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	void OnMouseLeave(const FPointerEvent& MouseEvent) override;
+	// End of SWidget interface
+
+	// Calculate position for multiple nodes to be placed between a start and end point, by providing this nodes index and max expected nodes 
+	void PositionBetweenTwoNodesWithOffset(const FGeometry& StartGeom, const FGeometry& EndGeom, int32 NodeIndex, int32 MaxNodes) const;
+
+	static FLinearColor StaticGetTransitionColor(UPDMissionTransitionNode* TransNode, bool bIsHovered);
+
+private:
+	TSharedPtr<STextEntryPopup> TextEntryWidget;
+
+	/** Cache of the widget representing the previous state node */
+	mutable TWeakPtr<SNode> PrevStateNodeWidgetPtr;
+
+private:
+	FText GetPreviewCornerText(bool reverse) const;
+	FSlateColor GetTransitionColor() const;
+	const FSlateBrush* GetTransitionIconImage() const;
+
+	TSharedRef<SWidget> GenerateRichTooltip();
+	// TSharedRef<SWidget> GenerateInlineDisplayOrEditingWidget(bool bShowGraphPreview);
+};
+
+
+//
+// Pins
+
+class SPDMissionGraphPin : public SGraphPin
+{
+public:
+	SLATE_BEGIN_ARGS(SPDMissionGraphPin) {}
+	SLATE_END_ARGS()
+	
+	void Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObject);
+	
+	virtual TSharedRef<SWidget> GetDefaultValueWidget() override;
+	virtual FSlateColor GetPinColor() const override;
+	const FSlateBrush* GetPinBorder() const;
+};
+
+class SPDAttributePin : public SPDMissionGraphPin
 {
 public:
 	SLATE_BEGIN_ARGS(SPDAttributePin) {}
@@ -120,7 +278,7 @@ private:
 
 // @todo This should be the split struct, needs to reflect the actual values in the given entry in teh datatable,
 // @todo cont: Note should be taken that child mission and mission transition rules should be represented in the graph visually, much like the state machine in the animinstance 
-class SPDDataAttributePin : public SGraphPin
+class SPDDataAttributePin : public SPDMissionGraphPin
 {
 public:
 	SLATE_BEGIN_ARGS(SPDDataAttributePin) {}
@@ -138,7 +296,7 @@ private:
 	// FPDMissionRow
 };
 
-class SPDNewKeyDataAttributePin : public SGraphPin
+class SPDNewKeyDataAttributePin : public SPDMissionGraphPin
 {
 public:
 	SLATE_BEGIN_ARGS(SPDNewKeyDataAttributePin) {}
@@ -156,6 +314,9 @@ private:
 	FGameplayTag MissionTag;
 };
 
+
+//
+// Pin factory
 
 class FPDAttributeGraphPinFactory : public FGraphPanelPinFactory
 {

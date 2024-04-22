@@ -12,6 +12,7 @@
 
 #include "PDMissionGraphNode.generated.h"
 
+class UPDMissionTransitionNode;
 class UEdGraph;
 class UEdGraphPin;
 class UEdGraphSchema;
@@ -23,35 +24,7 @@ class PDMISSIONEDITOR_API UPDMissionGraphNode : public UEdGraphNode
 {
 	GENERATED_UCLASS_BODY()
 
-	/** instance class */
-	UPROPERTY()
-	struct FPDMissionNodeData ClassData;
-
-	UPROPERTY()
-	TObjectPtr<UStruct> NodeInstance;
-
-	UPROPERTY(transient)
-	TObjectPtr<UPDMissionGraphNode> ParentNode;
-
-	UPROPERTY()
-	TArray<TObjectPtr<UPDMissionGraphNode>> SubNodes;
-
-	/** sub-node index assigned during copy operation to connect nodes again on paste */
-	UPROPERTY()
-	int32 CopySubNodeIndex;
-
-	/** if set, all modifications (including delete/cut) are disabled */
-	UPROPERTY()
-	uint32 bIsReadOnly : 1;
-
-	/** if set, this node will be always considered as a sub-node */
-	UPROPERTY()
-	uint32 bIsSubNode : 1;
-
-	/** error message for node */
-	UPROPERTY()
-	FString ErrorMessage;
-
+public:	
 	//~ Begin UEdGraphNode Interface
 	virtual class UPDMissionGraph* GetMissionGraph();
 	virtual void AutowireNewNode(UEdGraphPin* FromPin) override;
@@ -62,6 +35,14 @@ class PDMISSIONEDITOR_API UPDMissionGraphNode : public UEdGraphNode
 	virtual void DestroyNode() override;
 	virtual FText GetTooltipText() const override;
 	virtual void NodeConnectionListChanged() override;
+
+	/** Create a visual widget to represent this node in a graph editor or graph panel.  If not implemented, the default node factory will be used. */
+	virtual TSharedPtr<SGraphNode> CreateVisualWidget();
+
+	/** Create the background image for the widget representing this node */
+	// virtual TSharedPtr<SWidget> CreateNodeImage() const { return TSharedPtr<SWidget>(); }
+	
+	
 	virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const override;
 	virtual void FindDiffs(class UEdGraphNode* OtherNode, struct FDiffResults& Results) override;
 	virtual FString GetPropertyNameAndValueForDiff(const FProperty* Prop, const uint8* PropertyAddr) const override;
@@ -98,17 +79,8 @@ class PDMISSIONEDITOR_API UPDMissionGraphNode : public UEdGraphNode
 	/** initialize instance object  */
 	virtual void InitializeInstance();
 
-	/** reinitialize node instance */
-	virtual bool RefreshNodeClass();
-
 	/** updates ClassData from node instance */
 	virtual void UpdateNodeClassData();
-
-	/**
-	 * Checks for any errors in this node and updates ErrorMessage with any resulting message
-	 * Called every time the graph is serialized (i.e. loaded, saved, execution index changed, etc)
-	 */
-	virtual void UpdateErrorMessage();
 
 	/** Check if node instance uses blueprint for its implementation */
 	bool UsesBlueprint() const;
@@ -118,7 +90,11 @@ class PDMISSIONEDITOR_API UPDMissionGraphNode : public UEdGraphNode
 
 	virtual bool CanPlaceBreakpoints() const { return false; }
 	
-	void RefreshDataRefPins(FName MissionRowName);
+	void RefreshDataRefPins(const FName& MissionRowName);
+
+	FString GetMissionName() { return "finish me"; }
+	
+	void GetMissionTransitions(TArray<UPDMissionTransitionNode*>& Array); // Get all mission transition for this node
 
 	static void UpdateNodeDataFrom(UClass* InstanceClass, FPDMissionNodeData& UpdatedData);
 
@@ -128,6 +104,34 @@ protected:
 
 
 	void CreateMissionPin();
+
+
+public:
+
+	/** instance class */
+	UPROPERTY()
+	struct FPDMissionNodeData ClassData;
+
+	UPROPERTY()
+	TObjectPtr<UStruct> NodeInstance;
+
+	UPROPERTY(transient)
+	TObjectPtr<UPDMissionGraphNode> ParentNode;
+
+	UPROPERTY()
+	TArray<TObjectPtr<UPDMissionGraphNode>> SubNodes;
+
+	/** sub-node index assigned during copy operation to connect nodes again on paste */
+	UPROPERTY()
+	int32 CopySubNodeIndex;
+
+	/** if set, all modifications (including delete/cut) are disabled */
+	UPROPERTY()
+	uint32 bIsReadOnly : 1;
+
+	/** if set, this node will be always considered as a sub-node */
+	UPROPERTY()
+	uint32 bIsSubNode : 1;
 };
 
 
@@ -136,6 +140,8 @@ UCLASS()
 class PDMISSIONEDITOR_API UPDMissionGraphNode_EntryPoint : public UPDMissionGraphNode
 {
 	GENERATED_BODY()
+
+public:
 	UPDMissionGraphNode_EntryPoint(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
 	{
@@ -162,6 +168,8 @@ UCLASS()
 class PDMISSIONEDITOR_API UPDMissionGraphNode_MainQuest : public UPDMissionGraphNode
 {
 	GENERATED_BODY()
+
+public:
 	UPDMissionGraphNode_MainQuest(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
 	{
@@ -190,6 +198,8 @@ UCLASS()
 class PDMISSIONEDITOR_API UPDMissionGraphNode_SideQuest : public UPDMissionGraphNode
 {
 	GENERATED_BODY()
+
+public:
 	UPDMissionGraphNode_SideQuest(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
 	{
@@ -219,6 +229,8 @@ UCLASS()
 class PDMISSIONEDITOR_API UPDMissionGraphNode_EventQuest : public UPDMissionGraphNode
 {
 	GENERATED_BODY()
+
+public:
 	UPDMissionGraphNode_EventQuest(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
 	{
@@ -276,6 +288,70 @@ public:
 		return Pins[1];
 	}
 };
+
+
+UCLASS(MinimalAPI, config=Editor)
+class UPDMissionTransitionNode : public UEdGraphNode
+{
+	GENERATED_UCLASS_BODY()
+
+	// @todo replace bound graph with a data ref to teh mission transition rules of the owning mission 
+	// UPROPERTY()
+	// TObjectPtr<class UEdGraph> BoundGraph;
+	
+
+	// The priority order of this transition. If multiple transitions out of a state go
+	// true at the same time, the one with the smallest priority order will take precedent
+	UPROPERTY(EditAnywhere, Category=Transition)
+	int32 PriorityOrder;
+	
+	//~ Begin UObject Interface
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostLoad() override;
+	virtual void Serialize(FArchive& Ar) override;
+	//~ End UObject Interface
+
+	//~ Begin UEdGraphNode Interface
+	virtual void AllocateDefaultPins() override;
+	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
+	virtual FText GetTooltipText() const override;
+	virtual FLinearColor GetNodeTitleColor() const override;
+	virtual void PinConnectionListChanged(UEdGraphPin* Pin) override;
+	virtual bool CanDuplicateNode() const override { return true; }
+	virtual void PrepareForCopying() override;
+	virtual void PostPasteNode() override;
+	virtual void PostPlacedNewNode() override;
+	virtual void DestroyNode() override;
+	//~ End UEdGraphNode Interface
+
+	//~ Begin UPDMissionGraphNode Interface
+	virtual UEdGraphPin* GetInputPin() const { return Pins[0]; }
+	virtual UEdGraphPin* GetOutputPin() const { return Pins[1]; }
+	//~ End UPDMissionGraphNode Interface
+
+	// @return the name of this state
+	PDMISSIONEDITOR_API FString GetMissionName() const;
+
+	PDMISSIONEDITOR_API UPDMissionGraphNode* GetOwningMission() const;
+	PDMISSIONEDITOR_API UPDMissionGraphNode* GetTargetMission() const;
+	PDMISSIONEDITOR_API void CreateConnections(UPDMissionGraphNode* PreviousState, UPDMissionGraphNode* NextState);
+
+	/**
+	 * Relink transition head (where the arrow is of a state transition) to a new state.
+	 * @param[in] NewTargetState The new transition target.
+	 */
+	PDMISSIONEDITOR_API void RelinkHead(UPDMissionGraphNode* NewTargetState);
+
+	/**
+	 * Helper function to gather the transition nodes to be relinked by taking the graph selection into account as well.
+	 * For example when relinking a transition holding several transition nodes but only a few are selected to be relinked.
+	 */
+	PDMISSIONEDITOR_API static TArray<UPDMissionTransitionNode*> GetListTransitionNodesToRelink(UEdGraphPin* SourcePin, UEdGraphPin* OldTargetPin, const TArray<UEdGraphNode*>& InSelectedGraphNodes);
+	
+};
+
+
+
 
 /**
 Business Source License 1.1

@@ -10,7 +10,6 @@ void UPDMissionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 
 	Utility.InitializeMissionSubsystem();
-	Utility.FillIntermediaryMissionList(true); // Overwrite true to clear any straggling data from a previous session
 }
 
 void UPDMissionSubsystem::SetMission(int32 ActorID, const FPDMissionBase& PersistentDatum)

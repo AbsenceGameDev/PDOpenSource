@@ -193,24 +193,14 @@ TSharedPtr<FMissionSchemaAction_NewSubNode> UPDMissionGraphSchema::AddNewSubNode
 void UPDMissionGraphSchema::GetGraphNodeContextActions(FGraphContextMenuBuilder& ContextMenuBuilder, int32 SubNodeFlags) const
 {
 	UEdGraph* Graph = const_cast<UEdGraph*>(ContextMenuBuilder.CurrentGraph);
-	UClass* GraphNodeClass = nullptr;
-	TArray<FPDMissionNodeData> NodeClasses;
-	GetSubNodeClasses(SubNodeFlags, NodeClasses, GraphNodeClass);
+	UClass* GraphNodeClass = GetSubNodeClass(static_cast<EMissionGraphSubNodeType>(SubNodeFlags));
 
 	if (GraphNodeClass)
 	{
-		for (const auto& NodeClass : NodeClasses)
-		{
-			const FText NodeTypeName = FText::FromString(FName::NameToDisplayString(NodeClass.ToString(), false));
-
-			UPDMissionGraphNode* OpNode = NewObject<UPDMissionGraphNode>(Graph, GraphNodeClass);
-			OpNode->ClassData = NodeClass;
-
-			const TSharedPtr<FMissionSchemaAction_NewSubNode> AddOpAction = UPDMissionGraphSchema::AddNewSubNodeAction(ContextMenuBuilder, NodeClass.GetCategory(), NodeTypeName, NodeClass.GetTooltip());
-			AddOpAction->ParentNode = Cast<UPDMissionGraphNode>(ContextMenuBuilder.SelectedObjects[0]);
-			AddOpAction->NodeTemplate = OpNode;
-		}
 	}
+	
+	const FPDMissionNodeHandle DummyData; // @todo replace dummy with actual data
+	AddMissionNodeOptions(TEXT("Entry Point"), ContextMenuBuilder, DummyData);
 }
 
 void UPDMissionGraphSchema::GetContextMenuActions(class UToolMenu* Menu, class UGraphNodeContextMenuContext* Context) const
@@ -232,7 +222,7 @@ void UPDMissionGraphSchema::GetContextMenuActions(class UToolMenu* Menu, class U
 	if (Context->Node)
 	{
 		{
-			FToolMenuSection& Section = Menu->AddSection("BehaviorTreeGraphSchemaNodeActions", LOCTEXT("ClassActionsMenuHeader", "Node Actions"));
+			FToolMenuSection& Section = Menu->AddSection("PDMissionGraphSchemaNodeActions", LOCTEXT("ClassActionsMenuHeader", "Node Actions"));
 			Section.AddMenuEntry(FGenericCommands::Get().Delete);
 			Section.AddMenuEntry(FGenericCommands::Get().Cut);
 			Section.AddMenuEntry(FGenericCommands::Get().Copy);
@@ -485,35 +475,29 @@ int32 UPDMissionGraphSchema::CurrentCacheRefreshID = 0;
 
 void UPDMissionGraphSchema::CreateDefaultNodesForGraph(UEdGraph& Graph) const
 {
-	// @todo Add an entry point by default
-	// 	FGraphNodeCreator<UPDMissionGraphNode_EntryPoint> NodeCreator(Graph);
-	// 	UPDMissionGraphNode_EntryPoint* MyNode = NodeCreator.CreateNode();
-	// 	NodeCreator.Finalize();
-	// 	SetNodeMetaData(MyNode, FNodeMetadata::DefaultGraphNode);
+	FGraphNodeCreator<UPDMissionGraphNode_EntryPoint> NodeCreator(Graph);
+	UPDMissionGraphNode_EntryPoint* MyNode = NodeCreator.CreateNode();
+	NodeCreator.Finalize();
+	SetNodeMetaData(MyNode, FNodeMetadata::DefaultGraphNode);
 }
 
-void UPDMissionGraphSchema::GetSubNodeClasses(int32 SubNodeFlags, TArray<FPDMissionNodeData>& ClassData, UClass*& GraphNodeClass) const
+UClass* UPDMissionGraphSchema::GetSubNodeClass(EMissionGraphSubNodeType SubNodeFlag) const
 {
 	// @todo. Make actual subnode classes, currenlty these are actually the main nodes
-	// TArray<FPDMissionNodeData> TempClassData;
-	// switch (static_cast<EMissionGraphSubNodeType>(SubNodeFlags))
-	// {
-	// case EMissionGraphSubNodeType::MainQuest:
-	// 	// @todo Gather row data, replace -> 
-	// 	GraphNodeClass = UPDMissionGraphNode_MainQuest::StaticClass();
-	// 	break;
-	// case EMissionGraphSubNodeType::SideQuest:
-	// 	// @todo Gather row data, replace -> 
-	// 	GraphNodeClass = UPDMissionGraphNode_SideQuest::StaticClass();
-	// 	break;
-	// case EMissionGraphSubNodeType::EventQuest:
-	// 	// @todo Gather row data, replace -> 
-	// 	GraphNodeClass = UPDMissionGraphNode_EventQuest::StaticClass();
-	// 	break;
-	// default:
-	// 	break;
-	// }
-	// ClassData.AddUnique(FPDMissionNodeData{FPDMissionRow::StaticStruct(), ""});
+	TArray<FPDMissionNodeData> TempClassData;
+	switch (SubNodeFlag)
+	{
+	case EMissionGraphSubNodeType::MainQuest:
+		return UPDMissionGraphNode_MainQuest::StaticClass();
+	case EMissionGraphSubNodeType::SideQuest:
+		return UPDMissionGraphNode_SideQuest::StaticClass();
+	case EMissionGraphSubNodeType::EventQuest:
+		return UPDMissionGraphNode_EventQuest::StaticClass();
+	default:
+		break;
+	}
+
+	return nullptr;
 }
 
 void UPDMissionGraphSchema::AddMissionNodeOptions(const FString& CategoryName, FGraphContextMenuBuilder& ContextMenuBuilder, const FPDMissionNodeHandle& NodeData) const
@@ -541,7 +525,7 @@ void UPDMissionGraphSchema::AddMissionNodeOptions(const FString& CategoryName, F
 		UClass* TestClass = *It;
 		if (TestClass->HasAnyClassFlags(CLASS_Native) && TestClass->IsChildOf(UPDMissionGraphNode::StaticClass()))
 		{
-			FPDMissionNodeData NodeClass(TestClass, "");
+			FPDMissionNodeData NodeClass(TestClass);
 			NodeClass.bHideParent = false;
 			NodeClass.bIsHidden = false;
 			NodeClasses.Emplace(FPrivateNodeSelector::Op(TestClass),NodeClass);
@@ -663,12 +647,13 @@ const FPinConnectionResponse UPDMissionGraphSchema::CanCreateConnection(const UE
 		TSet<UEdGraphNode*> VisitedNodes;
 	};
 
-	// check for cycles
-	FNodeVisitorCycleChecker CycleChecker;
-	if (!CycleChecker.CheckForLoop(PinA->GetOwningNode(), PinB->GetOwningNode()))
-	{
-		return FPinConnectionResponse(CONNECT_RESPONSE_DISALLOW, LOCTEXT("PinErrorcycle", "Can't create a graph cycle"));
-	}
+	// @note allow graph cycles
+	// // check for cycles
+	// FNodeVisitorCycleChecker CycleChecker;
+	// if (!CycleChecker.CheckForLoop(PinA->GetOwningNode(), PinB->GetOwningNode()))
+	// {
+	// 	return FPinConnectionResponse(CONNECT_RESPONSE_DISALLOW, LOCTEXT("PinErrorcycle", "Can't create a graph cycle"));
+	// }
 
 	const bool bPinASingleLink = bPinAIsSingleComposite || bPinAIsSingleTask || bPinAIsSingleNode;
 	const bool bPinBSingleLink = bPinBIsSingleComposite || bPinBIsSingleTask || bPinBIsSingleNode;

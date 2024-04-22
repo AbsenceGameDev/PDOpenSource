@@ -15,6 +15,7 @@
 #include "GameplayTagContainer.h"
 #include "SGraphNodeKnot.h"
 #include "MissionGraph/PDMissionGraphSchema.h"
+#include "MissionGraph/Slate/PDMissionView.h"
 
 #define LOCTEXT_NAMESPACE "MissionGraph"
 
@@ -111,28 +112,35 @@ void UPDMissionGraphNode::CreateMissionPin()
 	ValueTerminalType.TerminalSubCategory = NAME_None;
 	ValueTerminalType.TerminalSubCategoryObject = FPDMissionRow::StaticStruct();
 		
-	UEdGraphNode::FCreatePinParams PinParam;
-	PinParam.Index = 2;
-	PinParam.bIsReference = false;
-	PinParam.ContainerType = EPinContainerType::None;
-	PinParam.ValueTerminalType = ValueTerminalType;
-		
-	FEdGraphPinType PinType_Mission(FPDMissionGraphTypes::PinCategory_MissionRow, NAME_None, FPDMissionRow::StaticStruct(), PinParam.ContainerType, PinParam.bIsReference, PinParam.ValueTerminalType);
-	PinType_Mission.bIsConst = PinParam.bIsConst;
-	CreatePin(EGPD_Input, PinType_Mission, TEXT("Mission"), PinParam.Index);
+	FEdGraphPinType PinType_Mission(
+		FPDMissionGraphTypes::PinCategory_MissionName,
+		NAME_None,
+		nullptr,
+		EPinContainerType::None,
+		false,
+		ValueTerminalType);
+	
+	PinType_Mission.bIsConst = false;
+	CreatePin(EGPD_Input, PinType_Mission, TEXT("MissionSelector"), 2);
 
-	// uncomment next commit
-	// FEdGraphPinType PinType_DataRef(FPDMissionGraphTypes::PinCategory_MissionDataRef, NAME_None, FPDMissionRow::StaticStruct(), PinParam.ContainerType, PinParam.bIsReference, PinParam.ValueTerminalType);
-	// PinType_DataRef.bIsConst = PinParam.bIsConst;
-	// CreatePin(EGPD_Input, PinType_DataRef, TEXT("DataRef"));	
+	// @todo fix crash 
+	FEdGraphPinType PinType_DataRef(
+		FPDMissionGraphTypes::PinCategory_MissionDataRef,
+		NAME_None,
+		FPDMissionRow::StaticStruct(),
+		EPinContainerType::None,
+		false,
+		ValueTerminalType);
+	
+	PinType_DataRef.bIsConst = false;
+	CreatePin(EGPD_Input, FPDMissionGraphTypes::PinCategory_MissionDataRef, TEXT("MissionDataRef"));	
 }
 
-void UPDMissionGraphNode::RefreshDataRefPins(FName MissionRowName)
+void UPDMissionGraphNode::RefreshDataRefPins(const FName& MissionRowName)
 {
-	if (MissionRowName == "--New Mission Row--")
+	if ((MissionRowName == "--New Mission Row--" || MissionRowName == NAME_None) && GetInputPin(2) != nullptr)
 	{
 		// Generate pin
-
 		FEdGraphTerminalType ValueTerminalType;
 		ValueTerminalType.TerminalCategory = UEdGraphSchema_K2::PC_Struct;
 		ValueTerminalType.TerminalSubCategory = NAME_None;
@@ -143,13 +151,12 @@ void UPDMissionGraphNode::RefreshDataRefPins(FName MissionRowName)
 		PinParam.bIsReference = false;
 		PinParam.ContainerType = EPinContainerType::None;
 		PinParam.ValueTerminalType = ValueTerminalType;
-		
 
 		FEdGraphPinType PinType_Key(FPDMissionGraphTypes::PinCategory_MissionRowKeyBuilder, NAME_None, FPDMissionRow::StaticStruct(), PinParam.ContainerType, PinParam.bIsReference, PinParam.ValueTerminalType);
 		PinType_Key.bIsConst = PinParam.bIsConst;
 		CreatePin(EGPD_Input, PinType_Key, TEXT("New data key"), PinParam.Index);			
 	}
-	else if (Pins.Num() > 3)
+	else if (GetInputPin(3) != nullptr)
 	{
 		RemovePinAt(3, EGPD_Input);
 	}
@@ -162,7 +169,7 @@ FText UPDMissionGraphNode::GetDescription() const
 	FString StoredClassName = ClassData.GetDataEntryName();
 	StoredClassName.RemoveFromEnd(TEXT("_C"));
 	
-	return FText::Format(LOCTEXT("NodeClassError", "Class {0} not found, make sure it's saved!"), FText::FromString(StoredClassName));
+	return StoredClassName.IsEmpty() == false ? FText::FromString(StoredClassName) : FText::Format(LOCTEXT("NodeClassError", "Class {0} not found, make sure it's saved!"), FText::FromString(StoredClassName));
 }
 
 FText UPDMissionGraphNode::GetTooltipText() const
@@ -172,11 +179,6 @@ FText UPDMissionGraphNode::GetTooltipText() const
 		FString StoredClassName = ClassData.GetDataEntryName();
 		StoredClassName.RemoveFromEnd(TEXT("_C"));
 		return FText::Format(LOCTEXT("NodeClassError", "Class {0} not found, make sure it's saved!"), FText::FromString(StoredClassName));
-	}
-	
-	if (ErrorMessage.Len() > 0)
-	{
-		return FText::FromString(ErrorMessage);
 	}
 
 	if (NodeInstance->GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint) == false)
@@ -260,6 +262,11 @@ void UPDMissionGraphNode::NodeConnectionListChanged()
 	Super::NodeConnectionListChanged();
 
 	GetMissionGraph()->UpdateData();
+}
+
+TSharedPtr<SGraphNode> UPDMissionGraphNode::CreateVisualWidget()
+{
+	return SNew(SMissionGraphNode, this);
 }
 
 bool UPDMissionGraphNode::CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const
@@ -406,38 +413,16 @@ bool UPDMissionGraphNode::UsesBlueprint() const
 	return NodeInstance && NodeInstance->GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
 }
 
-bool UPDMissionGraphNode::RefreshNodeClass()
-{
-	bool bUpdated = false;
-	if (NodeInstance == nullptr)
-	{
-		// @todo replace as FPDMissionDataNodeHelper was unneeded
-		// if (FPDMissionDataNodeHelper::IsClassKnown(ClassData))
-		// {
-		// 	PostPlacedNewNode();
-		// 	bUpdated = (NodeInstance != nullptr);
-		// }
-		// else
-		// {
-		// 	FPDMissionDataNodeHelper::AddUnknownClass(ClassData);
-		// }
-	}
-
-	return bUpdated;
-}
-
 void UPDMissionGraphNode::UpdateNodeClassData()
 {
 	if (NodeInstance)
 	{
 		UpdateNodeDataFrom(NodeInstance->GetClass(), ClassData);
-		UpdateErrorMessage();
 	}
 }
 
-void UPDMissionGraphNode::UpdateErrorMessage()
+void UPDMissionGraphNode::GetMissionTransitions(TArray<UPDMissionTransitionNode*>& Array)
 {
-	ErrorMessage = ClassData.GetDeprecatedMessage();
 }
 
 void UPDMissionGraphNode::UpdateNodeDataFrom(UClass* InstanceClass, FPDMissionNodeData& UpdatedData)
@@ -454,14 +439,14 @@ void UPDMissionGraphNode::UpdateNodeDataFrom(UClass* InstanceClass, FPDMissionNo
 		}
 		else
 		{
-			UpdatedData = FPDMissionNodeData(InstanceClass, "");
+			UpdatedData = FPDMissionNodeData(InstanceClass);
 		}
 	}
 }
 
 bool UPDMissionGraphNode::HasErrors() const
 {
-	return ErrorMessage.Len() > 0 || NodeInstance == nullptr;
+	return NodeInstance == nullptr;
 }
 
 #undef LOCTEXT_NAMESPACE
@@ -557,6 +542,255 @@ TSharedPtr<SGraphNode> UPDMissionGraphNode_Knot::CreateVisualWidget()
 {
 	return SNew(SGraphNodeKnot, this);
 }
+
+
+
+
+UPDMissionTransitionNode::UPDMissionTransitionNode(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	PriorityOrder = 1;
+}
+
+void UPDMissionTransitionNode::AllocateDefaultPins()
+{
+	UEdGraphPin* Inputs = CreatePin(EGPD_Input, TEXT("Transition"), TEXT("In"));
+	Inputs->bHidden = true;
+	UEdGraphPin* Outputs = CreatePin(EGPD_Output, TEXT("Transition"), TEXT("Out"));
+	Outputs->bHidden = true;
+}
+
+void UPDMissionTransitionNode::PostPlacedNewNode()
+{
+	Super::PostPlacedNewNode();
+}
+
+void UPDMissionTransitionNode::PostLoad()
+{
+	Super::PostLoad();
+}
+
+
+void UPDMissionTransitionNode::PostPasteNode()
+{
+	Super::PostPasteNode();
+
+	// We don't want to paste nodes in that aren't fully linked (transition nodes have fixed pins as they
+	// really describe the connection between two other nodes). If we find one missing link, get rid of the node.
+	for(UEdGraphPin* Pin : Pins)
+	{
+		if(Pin->LinkedTo.Num() == 0)
+		{
+			DestroyNode();
+			break;
+		}
+	}
+}
+
+FText UPDMissionTransitionNode::GetNodeTitle(ENodeTitleType::Type TitleType) const
+{
+	UPDMissionGraphNode* OwningMission = GetOwningMission();
+	UPDMissionGraphNode* TargetMission = GetTargetMission();
+	FFormatNamedArguments Args;
+
+	if ((OwningMission != NULL) && (TargetMission != NULL))
+	{
+		Args.Add(TEXT("PrevState"), FText::FromString(OwningMission->GetMissionName()) );
+		Args.Add(TEXT("NextState"), FText::FromString(TargetMission->GetMissionName()) );
+
+		return FText::Format(LOCTEXT("PrevStateToNewState", "{PrevState} to {NextState}"), Args);
+	}
+	
+	// @todo set up logic for the owning/bound mission 
+	Args.Add(TEXT("BoundGraph"), LOCTEXT("FinishMe", "(finish me)") );
+	// @TODO: FText::Format() is slow, and we could benefit from caching 
+	//        this off like we do for a lot of other nodes (but we have to
+	//        make sure to invalidate the cached string at the appropriate 
+	//        times).
+	return FText::Format(LOCTEXT("TransitionMission", "Transition {BoundMission}}"), Args);
+}
+
+FText UPDMissionTransitionNode::GetTooltipText() const
+{
+	return LOCTEXT("StateTransitionTooltip", "This is a state transition");
+}
+
+UPDMissionGraphNode* UPDMissionTransitionNode::GetOwningMission() const
+{
+	if (Pins[0]->LinkedTo.Num() > 0)
+	{
+		return Cast<UPDMissionGraphNode>(Pins[0]->LinkedTo[0]->GetOwningNode());
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+UPDMissionGraphNode* UPDMissionTransitionNode::GetTargetMission() const
+{
+	if (Pins[1]->LinkedTo.Num() > 0)
+	{
+		return Cast<UPDMissionGraphNode>(Pins[1]->LinkedTo[0]->GetOwningNode());
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+FLinearColor UPDMissionTransitionNode::GetNodeTitleColor() const
+{
+	return FColorList::Red;
+}
+
+void UPDMissionTransitionNode::PinConnectionListChanged(UEdGraphPin* Pin)
+{
+	if (Pin->LinkedTo.Num() == 0)
+	{
+		// Commit suicide; transitions must always have an input and output connection
+		Modify();
+
+		// Our parent graph will have our graph in SubGraphs so needs to be modified to record that.
+		if(UEdGraph* ParentGraph = GetGraph())
+		{
+			ParentGraph->Modify();
+		}
+
+		DestroyNode();
+	}
+}
+
+void UPDMissionTransitionNode::CreateConnections(UPDMissionGraphNode* PreviousState, UPDMissionGraphNode* NextState)
+{
+	// Previous to this
+	Pins[0]->Modify();
+	Pins[0]->LinkedTo.Empty();
+
+	PreviousState->GetOutputPin()->Modify();
+	Pins[0]->MakeLinkTo(PreviousState->GetOutputPin());
+
+	// This to next
+	Pins[1]->Modify();
+	Pins[1]->LinkedTo.Empty();
+
+	NextState->GetInputPin()->Modify();
+	Pins[1]->MakeLinkTo(NextState->GetInputPin());
+}
+
+void UPDMissionTransitionNode::RelinkHead(UPDMissionGraphNode* NewTargetState)
+{
+	UPDMissionGraphNode* SourceState = GetOwningMission();
+	UPDMissionGraphNode* TargetStateBeforeRelinking = GetTargetMission();
+
+	// Remove the incoming transition from the previous target state
+	TargetStateBeforeRelinking->GetInputPin()->Modify();
+	TargetStateBeforeRelinking->GetInputPin()->BreakLinkTo(SourceState->GetOutputPin());
+
+	// Add the new incoming transition to the new target state
+	NewTargetState->GetInputPin()->Modify();
+	NewTargetState->GetInputPin()->MakeLinkTo(SourceState->GetOutputPin());
+
+	// Relink the target state of the transition node
+	Pins[1]->Modify();
+	Pins[1]->BreakLinkTo(TargetStateBeforeRelinking->GetInputPin());
+	Pins[1]->MakeLinkTo(NewTargetState->GetInputPin());
+}
+
+TArray<UPDMissionTransitionNode*> UPDMissionTransitionNode::GetListTransitionNodesToRelink(UEdGraphPin* SourcePin, UEdGraphPin* OldTargetPin, const TArray<UEdGraphNode*>& InSelectedGraphNodes)
+{
+	UPDMissionGraphNode* SourceMission = Cast<UPDMissionGraphNode>(SourcePin->GetOwningNode());
+	if (SourceMission == nullptr || SourceMission->GetInputPin() == nullptr || SourceMission->GetOutputPin() == nullptr)
+	{
+		return {};
+	}
+
+	// Collect all transition nodes starting at the source state
+	TArray<UPDMissionTransitionNode*> TransitionNodeCandidates;
+	SourceMission->GetMissionTransitions(TransitionNodeCandidates);
+
+	// Remove the transition nodes from the candidates that are linked to a different target state.
+	for (int i = TransitionNodeCandidates.Num() - 1; i >= 0; i--)
+	{
+		UPDMissionTransitionNode* CurrentTransition = TransitionNodeCandidates[i];
+
+		// Get the actual target states from the transition nodes
+		UEdGraphNode* TransitionTargetNode = CurrentTransition->GetTargetMission();
+		UPDMissionTransitionNode* CastedOldTarget = Cast<UPDMissionTransitionNode>(OldTargetPin->GetOwningNode());
+		UEdGraphNode* OldTargetNode = CastedOldTarget->GetTargetMission();
+
+		// Compare the target states rather than comparing against the transition nodes
+		if (TransitionTargetNode != OldTargetNode)
+		{
+			TransitionNodeCandidates.Remove(CurrentTransition);
+		}
+	}
+
+	// Collect the subset of selected transitions from the list of possible transitions to be relinked
+	TSet<UPDMissionTransitionNode*> SelectedTransitionNodes;
+	for (UEdGraphNode* GraphNode : InSelectedGraphNodes)
+	{
+		UPDMissionTransitionNode* TransitionNode = Cast<UPDMissionTransitionNode>(GraphNode);
+		if (!TransitionNode)
+		{
+			continue;
+		}
+
+		if (TransitionNodeCandidates.Find(TransitionNode) != INDEX_NONE)
+		{
+			SelectedTransitionNodes.Add(TransitionNode);
+		}
+	}
+
+	TArray<UPDMissionTransitionNode*> Result;
+	Result.Reserve(TransitionNodeCandidates.Num());
+	for (UPDMissionTransitionNode* TransitionNode : TransitionNodeCandidates)
+	{
+		// Only relink the selected transitions. If none are selected, relink them all.
+		if (!SelectedTransitionNodes.IsEmpty() && SelectedTransitionNodes.Find(TransitionNode) == nullptr)
+		{
+			continue;
+		}
+
+		Result.Add(TransitionNode);
+	}
+
+	return Result;
+}
+
+void UPDMissionTransitionNode::PrepareForCopying()
+{
+	Super::PrepareForCopying();
+}
+
+void UPDMissionTransitionNode::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	FName PropertyName = (PropertyChangedEvent.Property != NULL) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
+
+	//
+	//
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+
+FString UPDMissionTransitionNode::GetMissionName() const
+{
+	return "finish me"; // @todo 1. rename to getmission name then 2. set up logic for the owning mission 
+}
+
+void UPDMissionTransitionNode::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+	Ar.UsingCustomVersion(FAnimPhysObjectVersion::GUID);
+	Ar.UsingCustomVersion(FUE5MainStreamObjectVersion::GUID);
+}
+
+void UPDMissionTransitionNode::DestroyNode()
+{
+	// handle removing transition
+	Super::DestroyNode();
+}
+
 #undef LOCTEXT_NAMESPACE
 
 

@@ -16,6 +16,12 @@
 #include "PDMissionEditor.h"
 #include "Subsystems/PDMissionSubsystem.h"
 
+
+#include "Framework/Application/SlateApplication.h"
+#include "Editor.h"
+#include "SGraphPanel.h"
+#include "ScopedTransaction.h"
+
 #define LOCTEXT_NAMESPACE "FMissionTreeNode"
 
 //
@@ -90,11 +96,9 @@ void SMissionTreeEditor::Construct( const FArguments& InArgs, const TSharedPtr<F
 {
 	MissionEditorPtr = InMissionEditor;
 	InMissionEditor->FocusedGraphEditorChanged.AddSP(this, &SMissionTreeEditor::OnFocusedGraphChanged);
+
+	// @todo Use MissionData handle and build a graph here
 	FPDMissionNodeHandle& MissionData = InMissionEditor->GetMissionData();
-	if (UPDMissionGraph* MyGraph = FPDMissionBuilder::GetGraphFromBank(MissionData, 0))
-	{
-		MyGraph->AddOnGraphChangedHandler(FOnGraphChanged::FDelegate::CreateSP(this, &SMissionTreeEditor::OnGraphChanged));
-	}
 
 	BuildTree();
 	ChildSlot
@@ -226,12 +230,664 @@ void SMissionTreeEditor::OnTreeSelectionChanged(TSharedPtr<FMissionTreeNode> Ite
 }
 
 
+//  NODES
+
+TSharedRef<FDragMissionGraphNode> FDragMissionGraphNode::New(const TSharedRef<SGraphPanel>& InGraphPanel,
+	const TSharedRef<SGraphNode>& InDraggedNode)
+{
+	TSharedRef<FDragMissionGraphNode> Operation = MakeShareable(new FDragMissionGraphNode);
+	Operation->StartTime = FPlatformTime::Seconds();
+	Operation->GraphPanel = InGraphPanel;
+	Operation->DraggedNodes.Add(InDraggedNode);
+	// adjust the decorator away from the current mouse location a small amount based on cursor size
+	Operation->DecoratorAdjust = FSlateApplication::Get().GetCursorSize();
+	Operation->Construct();
+	return Operation;
+}
+
+TSharedRef<FDragMissionGraphNode> FDragMissionGraphNode::New(const TSharedRef<SGraphPanel>& InGraphPanel,
+	const TArray<TSharedRef<SGraphNode>>& InDraggedNodes)
+{
+	TSharedRef<FDragMissionGraphNode> Operation = MakeShareable(new FDragMissionGraphNode);
+	Operation->StartTime = FPlatformTime::Seconds();
+	Operation->GraphPanel = InGraphPanel;
+	Operation->DraggedNodes = InDraggedNodes;
+	Operation->DecoratorAdjust = FSlateApplication::Get().GetCursorSize();
+	Operation->Construct();
+	return Operation;
+}
+
+UPDMissionGraphNode* FDragMissionGraphNode::GetDropTargetNode() const
+{
+	return Cast<UPDMissionGraphNode>(GetHoveredNode());
+}
+
+void SMissionGraphNode::Construct(const FArguments& InArgs, UPDMissionGraphNode* InNode)
+{
+	SetCursor(EMouseCursor::CardinalCross);
+
+	GraphNode = InNode;
+	UpdateGraphNode();
+
+	bDragMarkerVisible = false;	
+}
+
+void SMissionGraphNode::AddSubNode(TSharedPtr<SGraphNode> SubNodeWidget)
+{
+	SubNodes.Add(SubNodeWidget);
+}
+
+FText SMissionGraphNode::GetTitle() const
+{
+	return GraphNode ? GraphNode->GetNodeTitle(ENodeTitleType::FullTitle) : FText::GetEmpty();
+}
+
+FText SMissionGraphNode::GetDescription() const
+{
+	UPDMissionGraphNode* MyNode = CastChecked<UPDMissionGraphNode>(GraphNode);
+	return MyNode ? MyNode->GetDescription() : FText::GetEmpty();
+}
+
+EVisibility SMissionGraphNode::GetDescriptionVisibility() const
+{
+	// LOD this out once things get too small
+	TSharedPtr<SGraphPanel> MyOwnerPanel = GetOwnerPanel();
+	return (!MyOwnerPanel.IsValid() || MyOwnerPanel->GetCurrentLOD() > EGraphRenderingLOD::LowDetail) ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+void SMissionGraphNode::AddPin(const TSharedRef<SGraphPin>& PinToAdd)
+{
+	PinToAdd->SetOwner(SharedThis(this));
+
+	const UEdGraphPin* PinObj = PinToAdd->GetPinObj();
+	const bool bAdvancedParameter = PinObj && PinObj->bAdvancedView;
+	if (bAdvancedParameter)
+	{
+		PinToAdd->SetVisibility(TAttribute<EVisibility>(PinToAdd, &SGraphPin::IsPinVisibleAsAdvanced));
+	}
+
+	if (PinToAdd->GetDirection() == EEdGraphPinDirection::EGPD_Input)
+	{
+		LeftNodeBox->AddSlot()
+			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Fill)
+			.FillHeight(4.0f)
+			[
+				PinToAdd
+			];
+		InputPins.Add(PinToAdd);
+	}
+	else // Direction == EEdGraphPinDirection::EGPD_Output
+	{
+		RightNodeBox->AddSlot()
+			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Fill)
+			.FillHeight(4.0f)
+			[
+				PinToAdd
+			];
+		OutputPins.Add(PinToAdd);
+	}
+}
+
+FReply SMissionGraphNode::OnMouseMove(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent)
+{
+	if (MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton) && !(GEditor->bIsSimulatingInEditor || GEditor->PlayWorld))
+	{
+		//if we are holding mouse over a subnode
+		UPDMissionGraphNode* TestNode = Cast<UPDMissionGraphNode>(GraphNode);
+		if (TestNode && TestNode->IsSubNode())
+		{
+			const TSharedRef<SGraphPanel>& Panel = GetOwnerPanel().ToSharedRef();
+			const TSharedRef<SGraphNode>& Node = SharedThis(this);
+			return FReply::Handled().BeginDragDrop(FDragMissionGraphNode::New(Panel, Node));
+		}
+	}
+
+	if (!MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton) && bDragMarkerVisible)
+	{
+		SetDragMarker(false);
+	}
+
+	return FReply::Unhandled();
+}
+
+FReply SMissionGraphNode::OnMouseDown(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent)
+{
+	UPDMissionGraphNode* TestNode = Cast<UPDMissionGraphNode>(GraphNode);
+	if (TestNode && TestNode->IsSubNode())
+	{
+		GetOwnerPanel()->SelectionManager.ClickedOnNode(GraphNode, MouseEvent);
+		return FReply::Handled();
+	}
+
+	return FReply::Unhandled();
+}
+
+TSharedPtr<SGraphNode> SMissionGraphNode::GetSubNodeUnderCursor(const FGeometry& WidgetGeometry, const FPointerEvent& MouseEvent)
+{
+	TSharedPtr<SGraphNode> ResultNode;
+
+	// We just need to find the one WidgetToFind among our descendants.
+	TSet< TSharedRef<SWidget> > SubWidgetsSet;
+	for (int32 i = 0; i < SubNodes.Num(); i++)
+	{
+		SubWidgetsSet.Add(SubNodes[i].ToSharedRef());
+	}
+
+	TMap<TSharedRef<SWidget>, FArrangedWidget> Result;
+	FindChildGeometries(WidgetGeometry, SubWidgetsSet, Result);
+
+	if (Result.Num() > 0)
+	{
+		FArrangedChildren ArrangedChildren(EVisibility::Visible);
+		Result.GenerateValueArray(ArrangedChildren.GetInternalArray());
+		
+		const int32 HoveredIndex = SWidget::FindChildUnderMouse(ArrangedChildren, MouseEvent);
+		if (HoveredIndex != INDEX_NONE)
+		{
+			ResultNode = StaticCastSharedRef<SGraphNode>(ArrangedChildren[HoveredIndex].Widget);
+		}
+	}
+
+	return ResultNode;
+}
+
+void SMissionGraphNode::SetDragMarker(bool bEnabled)
+{
+	bDragMarkerVisible = bEnabled;
+}
+
+EVisibility SMissionGraphNode::GetDragOverMarkerVisibility() const
+{
+	return bDragMarkerVisible ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+void SMissionGraphNode::OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent)
+{
+	// Is someone dragging a node?
+	TSharedPtr<FDragNode> DragConnectionOp = DragDropEvent.GetOperationAs<FDragNode>();
+	if (DragConnectionOp.IsValid())
+	{
+		// Inform the Drag and Drop operation that we are hovering over this node.
+		TSharedPtr<SGraphNode> SubNode = GetSubNodeUnderCursor(MyGeometry, DragDropEvent);
+		DragConnectionOp->SetHoveredNode(SubNode.IsValid() ? SubNode : SharedThis(this));
+
+		UPDMissionGraphNode* TestNode = Cast<UPDMissionGraphNode>(GraphNode);
+		if (DragConnectionOp->IsValidOperation() && TestNode && TestNode->IsSubNode())
+		{
+			SetDragMarker(true);
+		}
+	}
+
+	SGraphNode::OnDragEnter(MyGeometry, DragDropEvent);
+}
+
+FReply SMissionGraphNode::OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent)
+{
+	// Is someone dragging a node?
+	TSharedPtr<FDragNode> DragConnectionOp = DragDropEvent.GetOperationAs<FDragNode>();
+	if (DragConnectionOp.IsValid())
+	{
+		// Inform the Drag and Drop operation that we are hovering over this node.
+		TSharedPtr<SGraphNode> SubNode = GetSubNodeUnderCursor(MyGeometry, DragDropEvent);
+		DragConnectionOp->SetHoveredNode(SubNode.IsValid() ? SubNode : SharedThis(this));
+	}
+	return SGraphNode::OnDragOver(MyGeometry, DragDropEvent);
+}
+
+void SMissionGraphNode::OnDragLeave(const FDragDropEvent& DragDropEvent)
+{
+	TSharedPtr<FDragNode> DragConnectionOp = DragDropEvent.GetOperationAs<FDragNode>();
+	if (DragConnectionOp.IsValid())
+	{
+		// Inform the Drag and Drop operation that we are not hovering any pins
+		DragConnectionOp->SetHoveredNode(TSharedPtr<SGraphNode>(NULL));
+	}
+
+	SetDragMarker(false);
+	SGraphNode::OnDragLeave(DragDropEvent);
+}
+
+FReply SMissionGraphNode::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent)
+{
+	SetDragMarker(false);
+
+	TSharedPtr<FDragMissionGraphNode> DragNodeOp = DragDropEvent.GetOperationAs<FDragMissionGraphNode>();
+	if (DragNodeOp.IsValid())
+	{
+		if (!DragNodeOp->IsValidOperation())
+		{
+			return FReply::Handled();
+		}
+
+		const float DragTime = float(FPlatformTime::Seconds() - DragNodeOp->StartTime);
+		if (DragTime < 0.5f)
+		{
+			return FReply::Handled();
+		}
+
+		UPDMissionGraphNode* MyNode = Cast<UPDMissionGraphNode>(GraphNode);
+		if (MyNode == nullptr || MyNode->IsSubNode())
+		{
+			return FReply::Unhandled();
+		}
+
+		const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "GraphEd_DragDropNode", "Drag&Drop Node"));
+		bool bReorderOperation = true;
+
+		const TArray< TSharedRef<SGraphNode> >& DraggedNodes = DragNodeOp->GetNodes();
+		for (int32 Idx = 0; Idx < DraggedNodes.Num(); Idx++)
+		{
+			UPDMissionGraphNode* DraggedNode = Cast<UPDMissionGraphNode>(DraggedNodes[Idx]->GetNodeObj());
+			if (DraggedNode && DraggedNode->ParentNode)
+			{
+				if (DraggedNode->ParentNode != GraphNode)
+				{
+					bReorderOperation = false;
+				}
+
+				DraggedNode->ParentNode->RemoveSubNode(DraggedNode);
+			}
+		}
+
+		UPDMissionGraphNode* DropTargetNode = DragNodeOp->GetDropTargetNode();
+		const int32 InsertIndex = MyNode->FindSubNodeDropIndex(DropTargetNode);
+
+		for (int32 Idx = 0; Idx < DraggedNodes.Num(); Idx++)
+		{
+			UPDMissionGraphNode* DraggedTestNode = Cast<UPDMissionGraphNode>(DraggedNodes[Idx]->GetNodeObj());
+			DraggedTestNode->Modify();
+			DraggedTestNode->ParentNode = MyNode;
+
+			MyNode->Modify();
+			MyNode->InsertSubNodeAt(DraggedTestNode, InsertIndex);
+		}
+
+		if (bReorderOperation)
+		{
+			UpdateGraphNode();
+		}
+		else
+		{
+			UPDMissionGraph* MyGraph = Cast<UPDMissionGraph>(MyNode->GetGraph());
+			if (MyGraph)
+			{
+				MyGraph->OnSubNodeDropped();
+			}
+		}
+	}
+
+	return SGraphNode::OnDrop(MyGeometry, DragDropEvent);
+}
+
+TSharedPtr<SToolTip> SMissionGraphNode::GetComplexTooltip()
+{
+	return NULL;
+}
+
+FText SMissionGraphNode::GetPreviewCornerText() const
+{
+	return FText::GetEmpty();
+}
+
+const FSlateBrush* SMissionGraphNode::GetNameIcon() const
+{
+	return FAppStyle::GetBrush(TEXT("Graph.StateNode.Icon"));
+}
+
+void SMissionGraphNode::SetOwner(const TSharedRef<SGraphPanel>& OwnerPanel)
+{
+	SGraphNode::SetOwner(OwnerPanel);
+
+	for (auto& ChildWidget : SubNodes)
+	{
+		if (ChildWidget.IsValid())
+		{
+			ChildWidget->SetOwner(OwnerPanel);
+			OwnerPanel->AttachGraphEvents(ChildWidget);
+		}
+	}
+}
+
+//
+// Mission Transition Node(s)
+
+void SGraphNodeMissionTransition::Construct(const FArguments& InArgs, UPDMissionTransitionNode* InNode)
+{
+	this->GraphNode = InNode;
+	this->UpdateGraphNode();
+}
+
+void SGraphNodeMissionTransition::GetNodeInfoPopups(FNodeInfoContext* Context, TArray<FGraphInformationPopupInfo>& Popups) const
+{
+}
+
+void SGraphNodeMissionTransition::MoveTo(const FVector2D& NewPosition, FNodeSet& NodeFilter, bool bMarkDirty)
+{
+	// Ignored; position is set by the location of the attached state nodes
+}
+
+bool SGraphNodeMissionTransition::RequiresSecondPassLayout() const
+{
+	return true;
+}
+
+void SGraphNodeMissionTransition::PerformSecondPassLayout(const TMap< UObject*, TSharedRef<SNode> >& NodeToWidgetLookup) const
+{
+	UPDMissionTransitionNode* TransNode = CastChecked<UPDMissionTransitionNode>(GraphNode);
+
+	// Find the geometry of the state nodes we're connecting
+	FGeometry StartGeom;
+	FGeometry EndGeom;
+
+	int32 TransIndex = 0;
+	int32 NumOfTrans = 1;
+
+	UPDMissionGraphNode* PrevState = TransNode->GetOwningMission();
+	UPDMissionGraphNode* NextState = TransNode->GetTargetMission();
+	if ((PrevState != NULL) && (NextState != NULL))
+	{
+		const TSharedRef<SNode>* pPrevNodeWidget = NodeToWidgetLookup.Find(PrevState);
+		const TSharedRef<SNode>* pNextNodeWidget = NodeToWidgetLookup.Find(NextState);
+		if ((pPrevNodeWidget != NULL) && (pNextNodeWidget != NULL))
+		{
+			const TSharedRef<SNode>& PrevNodeWidget = *pPrevNodeWidget;
+			const TSharedRef<SNode>& NextNodeWidget = *pNextNodeWidget;
+
+			StartGeom = FGeometry(FVector2D(PrevState->NodePosX, PrevState->NodePosY), FVector2D::ZeroVector, PrevNodeWidget->GetDesiredSize(), 1.0f);
+			EndGeom = FGeometry(FVector2D(NextState->NodePosX, NextState->NodePosY), FVector2D::ZeroVector, NextNodeWidget->GetDesiredSize(), 1.0f);
+
+			TArray<UPDMissionTransitionNode*> Transitions;
+			PrevState->GetMissionTransitions(Transitions);
+
+			Transitions = Transitions.FilterByPredicate([NextState](const UPDMissionTransitionNode* InTransition) -> bool
+			{
+				return InTransition->GetTargetMission() == NextState;
+			});
+
+			TransIndex = Transitions.IndexOfByKey(TransNode);
+			NumOfTrans = Transitions.Num();
+
+			PrevStateNodeWidgetPtr = PrevNodeWidget;
+		}
+	}
+
+	//Position Node
+	PositionBetweenTwoNodesWithOffset(StartGeom, EndGeom, TransIndex, NumOfTrans);
+}
+
+TSharedRef<SWidget> SGraphNodeMissionTransition::GenerateRichTooltip()
+{
+	UPDMissionTransitionNode* TransNode = CastChecked<UPDMissionTransitionNode>(GraphNode);
+
+	//
+	// Generate tooltip test in a vertical widget box, for the transition wdget
+	UEdGraphPin* CanExecPin = NULL;
+	TSharedRef<SVerticalBox> Widget = SNew(SVerticalBox);
+	const FText TooltipDesc = GetPreviewCornerText(false);
+	
+	// Transition rule linearized
+	Widget->AddSlot()
+		.AutoHeight()
+		.Padding( 2.0f )
+		[
+			SNew(STextBlock)
+			.TextStyle( FAppStyle::Get(), TEXT("Graph.TransitionNode.TooltipName") )
+			.Text(TooltipDesc)
+		];
+	
+	Widget->AddSlot()
+	.AutoHeight()
+	.Padding( 2.0f )
+	[
+		SNew(STextBlock)
+		.TextStyle( FAppStyle::Get(), TEXT("Graph.TransitionNode.TooltipRule") )
+		.Text(LOCTEXT("AnimGraphNodeTransitionRule_ToolTip", "Transition Rule (in words)"))
+	];
+	
+	// Widget->AddSlot()
+	// 	.AutoHeight()
+	// 	.Padding( 2.0f )
+	// 	[
+	// 		SNew(SKismetLinearExpression, CanExecPin)
+	// 	];
+
+	return Widget;
+}
+
+TSharedPtr<SToolTip> SGraphNodeMissionTransition::GetComplexTooltip()
+{
+	return SNew(SToolTip)
+		[
+			GenerateRichTooltip()
+		];
+}
+
+void SGraphNodeMissionTransition::UpdateGraphNode()
+{
+	InputPins.Empty();
+	OutputPins.Empty();
+
+	// Reset variables that are going to be exposed, in case we are refreshing an already setup node.
+	RightNodeBox.Reset();
+	LeftNodeBox.Reset();
+
+	this->ContentScale.Bind( this, &SGraphNode::GetContentScale );
+	this->GetOrAddSlot( ENodeZone::Center )
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Center)
+		[
+			SNew(SOverlay)
+			+SOverlay::Slot()
+			[
+				SNew(SImage)
+				.Image( FAppStyle::GetBrush("Graph.TransitionNode.ColorSpill") )
+				.ColorAndOpacity( this, &SGraphNodeMissionTransition::GetTransitionColor )
+			]
+			+SOverlay::Slot()
+			[
+				SNew(SImage)
+				.Image( this, &SGraphNodeMissionTransition::GetTransitionIconImage )
+			]
+		];
+}
+
+FText SGraphNodeMissionTransition::GetPreviewCornerText(bool bReverse) const
+{
+	UPDMissionTransitionNode* TransNode = CastChecked<UPDMissionTransitionNode>(GraphNode);
+
+	UPDMissionGraphNode* PrevState = (bReverse ? TransNode->GetTargetMission() : TransNode->GetOwningMission());
+	UPDMissionGraphNode* NextState = (bReverse ? TransNode->GetOwningMission() : TransNode->GetTargetMission());
+
+	FText Result = LOCTEXT("BadTransition", "Bad transition (missing source or target)");
+
+	// Show the priority if there is any ambiguity
+	if (PrevState != NULL)
+	{
+		if (NextState != NULL)
+		{
+			TArray<UPDMissionTransitionNode*> TransitionFromSource;
+			PrevState->GetMissionTransitions(/*out*/ TransitionFromSource);
+
+			bool bMultiplePriorities = false;
+			if (TransitionFromSource.Num() > 1)
+			{
+				// See if the priorities differ
+				for (int32 Index = 0; (Index < TransitionFromSource.Num()) && !bMultiplePriorities; ++Index)
+				{
+					const bool bDifferentPriority = (TransitionFromSource[Index]->PriorityOrder != TransNode->PriorityOrder);
+					bMultiplePriorities |= bDifferentPriority;
+				}
+			}
+
+			if (bMultiplePriorities)
+			{
+				Result = FText::Format(LOCTEXT("TransitionXToYWithPriority", "{0} to {1} (Priority {2})"), FText::FromString(PrevState->GetMissionName()), FText::FromString(NextState->GetMissionName()), FText::AsNumber(TransNode->PriorityOrder));
+			}
+			else
+			{
+				Result = FText::Format(LOCTEXT("TransitionXToY", "{0} to {1}"), FText::FromString(PrevState->GetMissionName()), FText::FromString(NextState->GetMissionName()));
+			}
+		}
+	}
+
+	return Result;
+}
+
+FLinearColor SGraphNodeMissionTransition::StaticGetTransitionColor(UPDMissionTransitionNode* TransNode, bool bIsHovered)
+{
+	//@TODO: Make configurable by styling
+	const FLinearColor ActiveColor(1.0f, 0.4f, 0.3f, 1.0f);
+	const FLinearColor HoverColor(0.724f, 0.256f, 0.0f, 1.0f);
+	FLinearColor BaseColor(0.9f, 0.9f, 0.9f, 1.0f);
+	
+
+	//@TODO: ANIMATION: Sort out how to display this
+	// 			if (TransNode->SharedCrossfadeIdx != INDEX_NONE)
+	// 			{
+	// 				WireColor.R = (TransNode->SharedCrossfadeIdx & 1 ? 1.0f : 0.15f);
+	// 				WireColor.G = (TransNode->SharedCrossfadeIdx & 2 ? 1.0f : 0.15f);
+	// 				WireColor.B = (TransNode->SharedCrossfadeIdx & 4 ? 1.0f : 0.15f);
+	// 			}
+	
+
+	return bIsHovered ? HoverColor : BaseColor;
+}
+
+FSlateColor SGraphNodeMissionTransition::GetTransitionColor() const
+{	
+	// Highlight the transition node when the node is hovered or when the previous state is hovered
+	UPDMissionTransitionNode* TransNode = CastChecked<UPDMissionTransitionNode>(GraphNode);
+	return StaticGetTransitionColor(TransNode, (IsHovered() || (PrevStateNodeWidgetPtr.IsValid() && PrevStateNodeWidgetPtr.Pin()->IsHovered())));
+}
+
+const FSlateBrush* SGraphNodeMissionTransition::GetTransitionIconImage() const
+{
+	UPDMissionTransitionNode* TransNode = CastChecked<UPDMissionTransitionNode>(GraphNode);
+	return FAppStyle::GetBrush("Graph.TransitionNode.Icon");
+}
+
+// TSharedRef<SWidget> SGraphNodeMissionTransition::GenerateInlineDisplayOrEditingWidget(bool bShowGraphPreview)
+// {
+// }
+
+void SGraphNodeMissionTransition::OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	UPDMissionTransitionNode* TransNode = CastChecked<UPDMissionTransitionNode>(GraphNode);
+	if (UEdGraphPin* Pin = TransNode->GetInputPin())
+	{
+		GetOwnerPanel()->AddPinToHoverSet(Pin);
+	}
+
+	SGraphNode::OnMouseEnter(MyGeometry, MouseEvent);
+}
+
+void SGraphNodeMissionTransition::OnMouseLeave(const FPointerEvent& MouseEvent)
+{	
+	UPDMissionTransitionNode* TransNode = CastChecked<UPDMissionTransitionNode>(GraphNode);
+	if (UEdGraphPin* Pin = TransNode->GetInputPin())
+	{
+		GetOwnerPanel()->RemovePinFromHoverSet(Pin);
+	}
+
+	SGraphNode::OnMouseLeave(MouseEvent);
+}
+
+void SGraphNodeMissionTransition::PositionBetweenTwoNodesWithOffset(const FGeometry& StartGeom, const FGeometry& EndGeom, int32 NodeIndex, int32 MaxNodes) const
+{
+	// Get a reasonable seed point (halfway between the boxes)
+	const FVector2D StartCenter = FGeometryHelper::CenterOf(StartGeom);
+	const FVector2D EndCenter = FGeometryHelper::CenterOf(EndGeom);
+	const FVector2D SeedPoint = (StartCenter + EndCenter) * 0.5f;
+
+	// Find the (approximate) closest points between the two boxes
+	const FVector2D StartAnchorPoint = FGeometryHelper::FindClosestPointOnGeom(StartGeom, SeedPoint);
+	const FVector2D EndAnchorPoint = FGeometryHelper::FindClosestPointOnGeom(EndGeom, SeedPoint);
+
+	// Position ourselves halfway along the connecting line between the nodes, elevated away perpendicular to the direction of the line
+	const float Height = 30.0f;
+
+	const FVector2D DesiredNodeSize = GetDesiredSize();
+
+	FVector2D DeltaPos(EndAnchorPoint - StartAnchorPoint);
+
+	if (DeltaPos.IsNearlyZero())
+	{
+		DeltaPos = FVector2D(10.0f, 0.0f);
+	}
+
+	const FVector2D Normal = FVector2D(DeltaPos.Y, -DeltaPos.X).GetSafeNormal();
+
+	const FVector2D NewCenter = StartAnchorPoint + (0.5f * DeltaPos) + (Height * Normal);
+
+	FVector2D DeltaNormal = DeltaPos.GetSafeNormal();
+	
+	// Calculate node offset in the case of multiple transitions between the same two nodes
+	// MultiNodeOffset: the offset where 0 is the centre of the transition, -1 is 1 <size of node>
+	// towards the PrevStateNode and +1 is 1 <size of node> towards the NextStateNode.
+
+	const float MutliNodeSpace = 0.2f; // Space between multiple transition nodes (in units of <size of node> )
+	const float MultiNodeStep = (1.f + MutliNodeSpace); //Step between node centres (Size of node + size of node spacer)
+
+	const float MultiNodeStart = -((MaxNodes - 1) * MultiNodeStep) / 2.f;
+	const float MultiNodeOffset = MultiNodeStart + (NodeIndex * MultiNodeStep);
+
+	// Now we need to adjust the new center by the node size, zoom factor and multi node offset
+	const FVector2D NewCorner = NewCenter - (0.5f * DesiredNodeSize) + (DeltaNormal * MultiNodeOffset * DesiredNodeSize.Size());
+
+	GraphNode->NodePosX = static_cast<int32>(NewCorner.X);
+	GraphNode->NodePosY = static_cast<int32>(NewCorner.Y);
+}
+
+
+
+//
+// PINS
+
+void SPDMissionGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObject)
+{
+	this->SetCursor(EMouseCursor::Default);
+
+	bShowLabel = true;
+
+	GraphPinObj = InGraphPinObject;
+	check(GraphPinObj != NULL);
+
+	const UEdGraphSchema* Schema = GraphPinObj->GetSchema();
+	check(Schema);
+
+	SBorder::Construct(SBorder::FArguments()
+		.BorderImage(this, &SPDMissionGraphPin::GetPinBorder)
+		.BorderBackgroundColor(this, &SPDMissionGraphPin::GetPinColor)
+		.OnMouseButtonDown(this, &SPDMissionGraphPin::OnPinMouseDown)
+		.Cursor(this, &SPDMissionGraphPin::GetPinCursor)
+		.Padding(FMargin(10.0f))
+		);		
+}
+
+
+TSharedRef<SWidget>	SPDMissionGraphPin::GetDefaultValueWidget()
+{
+	return SNew(STextBlock);
+}
+
+const FSlateBrush* SPDMissionGraphPin::GetPinBorder() const
+{
+	return FAppStyle::GetBrush(TEXT("Graph.StateNode.Body"));
+}
+
+FSlateColor SPDMissionGraphPin::GetPinColor() const
+{
+	return FSlateColor(IsHovered() ? FLinearColor::Yellow : FLinearColor::Black);
+}
+
+
 //
 // Row Selector attribute
 
 void SPDAttributePin::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {
-	// FillMissionList(true);
 	SGraphPin::Construct(SGraphPin::FArguments(), InGraphPinObj);
 }
 
@@ -268,6 +924,7 @@ void SPDAttributePin::OnAttributeSelected(TSharedPtr<FString> ItemSelected, ESel
 		Cast<UPDMissionGraphNode>(OwnerNodePtr.Pin()->GetNodeObj()) : nullptr;
 	if (AsMissionGraphNode != nullptr)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Calling RefreshDataRefPins(SelectedMissionRowName), SelectedMissionName: %s"), *SelectedMissionRowName.ToString())
 		AsMissionGraphNode->RefreshDataRefPins(SelectedMissionRowName);
 	}
 	
@@ -353,20 +1010,18 @@ FSlateColor SPDNewKeyDataAttributePin::GetPinColor() const
 TSharedPtr<SGraphPin> FPDAttributeGraphPinFactory::CreatePin(UEdGraphPin* InPin) const
 {
 	/* Compare pin-category and subcategory to make sure the pin is of the correct type  */
-	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_MissionRow && InPin->PinType.PinSubCategoryObject == FPDMissionRow::StaticStruct()) 
+	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_MissionName) 
 	{
 		return SNew(SPDAttributePin, InPin); 
+	}
+	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_MissionRowKeyBuilder)
+	{
+		return SNew(SPDNewKeyDataAttributePin, InPin); 
 	}
 	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_MissionDataRef && InPin->PinType.PinSubCategoryObject == FPDMissionRow::StaticStruct())
 	{
 		return SNew(SPDDataAttributePin, InPin); 
 	}
-	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_MissionRowKeyBuilder && InPin->PinType.PinSubCategoryObject == FPDMissionRow::StaticStruct())
-	{
-		return SNew(SPDNewKeyDataAttributePin, InPin); 
-	}
-
-
 	
 	return FGraphPanelPinFactory::CreatePin(InPin);
 }

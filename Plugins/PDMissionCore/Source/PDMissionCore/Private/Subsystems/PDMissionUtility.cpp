@@ -123,6 +123,7 @@ void FPDMissionUtility::OverwriteMissionDatum(UPDMissionTracker* MissionTracker,
 void FPDMissionUtility::InitializeMissionSubsystem()
 {
 	ProcessTablesForFastLookup();
+	FillIntermediaryMissionList(true); // Overwrite true to clear any straggling data from a previous session
 }
 
 const TArray<UDataTable*>& FPDMissionUtility::GetAllTables() const

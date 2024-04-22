@@ -18,7 +18,7 @@ UPDMissionGraph* FPDMissionBuilder::CreateNewGraph(const FPDMissionNodeHandle& N
 {
 	UPDMissionGraph* NewGraph = CastChecked<UPDMissionGraph>(FBlueprintEditorUtils::CreateNewGraph(static_cast<UDataTable*>(NodeData.DataTarget.DataTable), GraphName, UPDMissionGraph::StaticClass(), UPDMissionGraphSchema::StaticClass()));
 
-	const UEdGraphSchema* Schema = NewGraph->GetSchema();
+	const UPDMissionGraphSchema* Schema = Cast<UPDMissionGraphSchema>(NewGraph->GetSchema());
 	Schema->CreateDefaultNodesForGraph(*NewGraph);
 
 	NewGraph->OnCreated();
@@ -27,35 +27,15 @@ UPDMissionGraph* FPDMissionBuilder::CreateNewGraph(const FPDMissionNodeHandle& N
 }
 
 
-int32 FPDMissionBuilder::GetNumGraphs(const FPDMissionNodeHandle& NodeData)
+UPDMissionGraph* FPDMissionBuilder::CreateNewGraph(UDataTable* MissionTable, FName GraphName)
 {
-	check(NodeData.DataTarget.DataTable);
-	return NodeData.SourceGraphs.Num();
-}
+	UPDMissionGraph* NewGraph = CastChecked<UPDMissionGraph>(FBlueprintEditorUtils::CreateNewGraph(MissionTable, GraphName, UPDMissionGraph::StaticClass(), UPDMissionGraphSchema::StaticClass()));
+	const UPDMissionGraphSchema* Schema = Cast<UPDMissionGraphSchema>(NewGraph->GetSchema());
+	Schema->CreateDefaultNodesForGraph(*NewGraph);
 
-UPDMissionGraph* FPDMissionBuilder::GetGraphFromBank(FPDMissionNodeHandle& NodeData, const int32 Index)
-{
-	check(NodeData.DataTarget.DataTable);
-	return NodeData.SourceGraphs.IsValidIndex(Index) ? CastChecked<UPDMissionGraph>(NodeData.SourceGraphs[Index]) : nullptr;
-}
+	NewGraph->OnCreated();
 
-void FPDMissionBuilder::RebuildData(FPDMissionNodeHandle& NodeData)
-{
-	SCOPE_LOG_TIME_IN_SECONDS(TEXT("FPDMissionBuilder::RebuildData"), nullptr);
-
-	check(NodeData.DataTarget.DataTable);
-
-	// Merge all the graphs
-	TArray<UPDMissionGraphNode*> AllGraphNodes;
-	for (const UEdGraph* Graph : NodeData.SourceGraphs)
-	{
-		Graph->GetNodesOfClass<UPDMissionGraphNode>(/*inout*/ AllGraphNodes);
-	}
-
-	// 1.  Read table rows from the given mission-row handles
-	// 2.  Walk different the paths in them until a loop is found
-	// 3.  build up pin association between then amd update data representation
-
+	return NewGraph;
 }
 
 void FPDMissionBuilder::ForeachConnectedOutgoingMissionNode(UEdGraphPin* Pin, TFunctionRef<void(UPDMissionGraphNode*)> Predicate)
