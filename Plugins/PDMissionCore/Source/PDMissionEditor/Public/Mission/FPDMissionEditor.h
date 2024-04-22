@@ -180,6 +180,8 @@ public:
 	static const FName TreeViewMode;
 	FPDMissionDebuggerHandler DebugHandler;
 	FSimpleMulticastDelegate FocusedGraphEditorChanged;
+	
+	class UPDMissionGraph* GraphObj = nullptr;
 
 protected:
 

@@ -30,9 +30,13 @@
 #include "Framework/Commands/GenericCommands.h"
 #include "Editor/EditorEngine.h"
 #include "EngineGlobals.h"
+#include "PDMissionEditor.h"
 
 
 #include "HAL/PlatformApplicationMisc.h"
+#include "Mission/PDMissionBuilder.h"
+#include "Mission/Graph/PDMissionGraphSchema.h"
+#include "Subsystems/PDMissionSubsystem.h"
 #include "WorkflowOrientedApp/WorkflowTabManager.h"
 
 #define LOCTEXT_NAMESPACE "MissionGraph"
@@ -749,8 +753,64 @@ TSharedRef<SWidget> FFPDMissionGraphEditor::SpawnSearch()
 
 TSharedRef<SWidget> FFPDMissionGraphEditor::SpawnMissionTree()
 {
-	TreeEditor = SNew(SMissionTreeEditor, SharedThis(this)); 
-	return TreeEditor.ToSharedRef();
+	// 'MissionSubsystem' should never be empty at this point, this function will not have been called in that case
+	UPDMissionSubsystem* MissionSubsystem = UPDMissionStatics::GetMissionSubsystem();
+	check(MissionSubsystem != nullptr)
+	MissionSubsystem->Utility.InitializeMissionSubsystem(); // @test
+	
+	// 'Utility.GetAllTables' should never be empty at this point, this function will not have been called in that case
+	const TArray<UDataTable*>& Tables = MissionSubsystem->Utility.GetAllTables();
+	check(Tables.IsEmpty() == false)
+
+	// 'Utility.GetAllTables' should never be empty at this point, this function will not have been called before the tab factory has been instntiated
+	const TWeakPtr<FDocumentTabFactory> GraphEditorFactory = GetGraphEditorTabFactoryPtr();
+	check(GraphEditorFactory != nullptr)
+	
+	const TWeakPtr<SGraphEditor> FocusedGraphEditor = GetFocusedGraphPtr();
+	if (FocusedGraphEditor.IsValid() && FocusedGraphEditor.Pin()->GetCurrentGraph() != nullptr)
+	{
+		GraphObj = Cast<UPDMissionGraph>(FocusedGraphEditor.Pin()->GetCurrentGraph());
+	}
+	else
+	{
+		GraphObj = FPDMissionBuilder::CreateNewGraph(Tables[0], "MissionEditor");
+	}
+	
+	if (GraphObj == nullptr)
+	{
+		const FText WidgetText = FText::Format(
+			LOCTEXT("WindowWidgetText", "Expected UEdGraph is invalid: in function: {0} in file: {1}"),
+			FText::FromString(TEXT("FFPDMissionGraphEditor::SpawnMissionTree")),
+			FText::FromString(TEXT("FPDMissionEditor.cpp"))
+			);
+	
+		return SNew(SDockTab).TabRole(ETabRole::NomadTab)
+		[
+			SNew(SBox).HAlign(HAlign_Center).VAlign(VAlign_Center) [ SNew(STextBlock).Text(WidgetText) ]
+		];
+	}
+
+	FPDMissionEditorModule& PDMissionEditorModule = FModuleManager::GetModuleChecked<FPDMissionEditorModule>("PDMissionEditor");
+	UDataTable* EditingTable = PDMissionEditorModule.GetIntermediaryEditingTable(true);	
+	if (EditingTable == nullptr) // && EditingTable->GetRowMap().Num() > 0)
+	{
+		EditingTable = PDMissionEditorModule.GetIntermediaryEditingTable(true);
+	}
+	
+	// Copy any data if necessary
+	if (EditingTable->GetRowMap().Num() >= 0)
+	{
+		for (const UDataTable* TableToCopy : Tables)
+		{
+			PDMissionEditorModule.CopyMissionTable(TableToCopy, true);
+		}
+	}
+	
+	// Add schema to the graph and add the graph to the root
+	GraphObj->Schema = UPDMissionGraphSchema::StaticClass();
+	GraphObj->AddToRoot();
+	
+	return CreateGraphEditorWidget(GraphObj);
 }
 
 void FFPDMissionGraphEditor::RegisterToolbarTab(const TSharedRef<FTabManager>& InTabManager)
@@ -900,7 +960,7 @@ void FFPDMissionGraphEditor::CreateInternalWidgets()
 	DetailsViewArgs.NameAreaSettings = FDetailsViewArgs::HideNameArea;
 	DetailsViewArgs.NotifyHook = this;
 	DetailsViewArgs.DefaultsOnlyVisibility = EEditDefaultsOnlyNodeVisibility::Hide;
-	
+
 	DetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
 	DetailsView->SetObject( nullptr );
 	DetailsView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &FFPDMissionGraphEditor::IsPropertyEditable));

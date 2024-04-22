@@ -35,9 +35,7 @@ void FPDMissionEditorModule::StartupModule()
 	// Register pinfactory for editor
 	TSharedPtr<FPDAttributeGraphPinFactory> AttributeGraphPinFactory = MakeShareable(new FPDAttributeGraphPinFactory());
 	FEdGraphUtilities::RegisterVisualPinFactory(AttributeGraphPinFactory);
-
 	
-	//
 	//
 	// This Asset action applies a new default editor of assets of type: UPDMissionDataTable
 	ItemDataAssetTypeActions.Add(MakeShared<FAssetTypeActions_MissionEditor>());
@@ -46,7 +44,7 @@ void FPDMissionEditorModule::StartupModule()
 	{
 		AssetToolsModule.RegisterAssetTypeActions(AssetActionPtr.ToSharedRef());
 	}
-
+	
 	FPDMissionEditorStyle::Initialize();
 	FPDMissionEditorStyle::ReloadTextures();
 	FPDMissionEditorCommands::Register();
@@ -59,9 +57,9 @@ void FPDMissionEditorModule::StartupModule()
 
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FPDMissionEditorModule::RegisterMenus));
 	
-	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(PDMissionEditorTabName, FOnSpawnTab::CreateRaw(this, &FPDMissionEditorModule::OnSpawnPluginTab))
-		.SetDisplayName(LOCTEXT("FPDMissionEditorTabTitle", "PDMissionEditor"))
-		.SetMenuType(ETabSpawnerMenuType::Enabled);
+	// FGlobalTabmanager::Get()->RegisterNomadTabSpawner(PDMissionEditorTabName, FOnSpawnTab::CreateRaw(this, &FPDMissionEditorModule::OnSpawnPluginTab))
+	// 	.SetDisplayName(LOCTEXT("FPDMissionEditorTabTitle", "PDMissionEditor"))
+	// 	.SetMenuType(ETabSpawnerMenuType::Enabled);
 }
 
 void FPDMissionEditorModule::ShutdownModule()
@@ -212,12 +210,12 @@ TSharedRef<SDockTab> FPDMissionEditorModule::OnSpawnPluginTab(const FSpawnTabArg
 			SNew(SBox).HAlign(HAlign_Center).VAlign(VAlign_Center) [ SNew(STextBlock).Text(WidgetText) ]
 		];
 	}
-
+	
 	if (EditingTable == nullptr) // && EditingTable->GetRowMap().Num() > 0)
 	{
 		EditingTable = GetIntermediaryEditingTable(true);
 	}
-
+	
 	// Copy any data if necessary
 	if (EditingTable->GetRowMap().Num() >= 0)
 	{
@@ -230,13 +228,12 @@ TSharedRef<SDockTab> FPDMissionEditorModule::OnSpawnPluginTab(const FSpawnTabArg
 	// Add schema to the graph and add the graph to the root
 	GraphObj->Schema = UPDMissionGraphSchema::StaticClass();
 	GraphObj->AddToRoot();
-
+	
 	const TSharedRef<SDockTab> MajorTab = SNew(SDockTab)
 	[
 		MissionEditor->CreateGraphEditorWidget(GraphObj)
 	];
 	
-
 	return MajorTab;
 }
 
@@ -472,7 +469,62 @@ void FPDMissionEditorModule::FinalizeRowChanges(UDataTable* TargetTable, const T
 
 void FPDMissionEditorModule::PluginButtonClicked()
 {
-	FGlobalTabmanager::Get()->TryInvokeTab(PDMissionEditorTabName);
+	if (GEngine == nullptr)
+	{
+		const FText WidgetText = FText::Format(
+			LOCTEXT("WindowWidgetText", "GEngine is invalid: in function: {0} in file: {1}"),
+			FText::FromString(TEXT("FPDMissionEditorModule::PluginButtonClicked")),
+			FText::FromString(TEXT("PDMissionEditor.cpp"))
+			);
+		FMessageDialog::Open(EAppMsgType::Ok, WidgetText);
+		return;
+	}
+
+	UPDMissionSubsystem* MissionSubsystem = UPDMissionStatics::GetMissionSubsystem();
+	if (MissionSubsystem == nullptr)
+	{
+		const FText WidgetText = FText::Format(
+			LOCTEXT("WindowWidgetText", "MissionSubsystem is invalid: in function: {0} in file: {1}"),
+			FText::FromString(TEXT("FPDMissionEditorModule::PluginButtonClicked")),
+			FText::FromString(TEXT("PDMissionEditor.cpp"))
+			);
+		FMessageDialog::Open(EAppMsgType::Ok, WidgetText);
+		return;
+	}
+
+	bool bSpawnedEditor = false;
+	MissionSubsystem->Utility.InitializeMissionSubsystem(); // @test
+	const TArray<UDataTable*>& Tables = MissionSubsystem->Utility.GetAllTables();
+	for (const UDataTable* Databank : Tables)
+	{
+		if (Databank == nullptr) { continue; }
+
+		TArray<FName> SlowRandomKeyList{};
+		Databank->GetRowMap().GetKeys(SlowRandomKeyList);
+		
+		FPDMissionNodeHandle ConstructedNodeData;
+		ConstructedNodeData.DataTarget.DataTable = Databank;
+		ConstructedNodeData.DataTarget.RowName = SlowRandomKeyList.IsEmpty() ? NAME_None : SlowRandomKeyList[0];
+		
+		// this creates the appwindow, which contains an empty details tab alongside a custom graph editor
+		FFPDMissionGraphEditor::CreateMissionEditor(ConstructedNodeData);
+
+		bSpawnedEditor = true;
+
+		break;
+	}
+
+	if (bSpawnedEditor == false)
+	{
+		const FText WidgetText = FText::Format(
+			LOCTEXT("WindowWidgetText", "UPDMissionSubsystem 'MissionTables' array is empty! \n in function: {0} \n in file: {1} \n Note: Assign tables via config variable. 'TArray<UDataTable*> MissionTables' "),
+			FText::FromString(TEXT("FPDMissionEditorModule::PluginButtonClicked")),
+			FText::FromString(TEXT("PDMissionEditor.cpp"))
+			);
+		FMessageDialog::Open(EAppMsgType::Ok, WidgetText);
+	}	
+	
+	// FGlobalTabmanager::Get()->TryInvokeTab(PDMissionEditorTabName);
 }
 
 UDataTable* FPDMissionEditorModule::ConstructEditingTable()
@@ -508,9 +560,9 @@ void FPDMissionEditorModule::RegisterMenus()
 	}
 
 	{
-		UToolMenu* ToolbarMenu = UToolMenus::Get()->ExtendMenu("LevelEditor.LevelEditorToolBar");
+		UToolMenu* ToolbarMenu = UToolMenus::Get()->ExtendMenu("LevelEditor.LevelEditorToolBar.PlayToolBar");
 		{
-			FToolMenuSection& Section = ToolbarMenu->FindOrAddSection("Settings");
+			FToolMenuSection& Section = ToolbarMenu->FindOrAddSection("PluginTools");
 			{
 				FToolMenuEntry& Entry = Section.AddEntry(FToolMenuEntry::InitToolBarButton(FPDMissionEditorCommands::Get().OpenPluginWindow));
 				Entry.SetCommandList(PluginCommands);

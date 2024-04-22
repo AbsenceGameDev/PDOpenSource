@@ -29,7 +29,7 @@ void FPDMissionEditorStyle::Shutdown()
 
 FName FPDMissionEditorStyle::GetStyleSetName()
 {
-	static FName StyleSetName(TEXT("PDMissionCoreStyle"));
+	static FName StyleSetName(TEXT("PDMissionEditorStyle"));
 	return StyleSetName;
 }
 
@@ -38,26 +38,24 @@ const FVector2D Icon20x20(20.0f, 20.0f);
 
 TSharedRef< FSlateStyleSet > FPDMissionEditorStyle::Create()
 {
-	TSharedRef< FSlateStyleSet > Style = MakeShareable(new FSlateStyleSet("PDMissionCoreStyle"));
+	TSharedRef< FSlateStyleSet > Style = MakeShareable(new FSlateStyleSet("PDMissionEditorStyle"));
 	Style->SetContentRoot(IPluginManager::Get().FindPlugin("PDMissionCore")->GetBaseDir() / TEXT("Resources"));
-
-	Style->Set("PDMissionCore.OpenPluginWindow", new IMAGE_BRUSH_SVG(TEXT("PlaceholderButtonIcon"), Icon20x20));
+	Style->Set("PDMissionEditor.OpenPluginWindow", new IMAGE_BRUSH_SVG(TEXT("pdMIcon"), Icon20x20));
 
 	return Style;
 }
 
 void FPDMissionEditorStyle::ReloadTextures()
 {
-	if (FSlateApplication::IsInitialized())
-	{
-		FSlateApplication::Get().GetRenderer()->ReloadTextureResources();
-	}
+	if (FSlateApplication::IsInitialized() == false) { return; }
+	FSlateApplication::Get().GetRenderer()->ReloadTextureResources();
 }
 
 const ISlateStyle& FPDMissionEditorStyle::Get()
 {
 	return *StyleInstance;
 }
+
 
 /**
 Business Source License 1.1
