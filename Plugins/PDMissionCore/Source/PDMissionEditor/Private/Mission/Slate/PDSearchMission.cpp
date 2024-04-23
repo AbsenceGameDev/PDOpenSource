@@ -2,7 +2,7 @@
 
 #include "Mission/Slate/PDSearchMission.h"
 #include "Mission/FPDMissionEditor.h"
-#include "Mission/Graph/PDMissionGraphNode.h"
+#include "Mission/Graph/PDMissionGraphNodes.h"
 
 #include "EdGraph/EdGraph.h"
 #include "Framework/Views/TableViewMetadata.h"

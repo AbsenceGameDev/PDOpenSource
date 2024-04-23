@@ -3,7 +3,7 @@
 #pragma once
 
 #include "PDMissionGraphTypes.h"
-#include "Graph/PDMissionGraphNode.h"
+#include "Graph/PDMissionGraphNodes.h"
 // #include "HAL/Platform.h"
 
 class UPDMissionGraph;

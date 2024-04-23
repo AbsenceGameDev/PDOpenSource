@@ -10,11 +10,9 @@ class FMenuBuilder;
 class FConnectionDrawingPolicy;
 class FSlateWindowElementList;
 
-
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "EdGraph/EdGraphSchema.h"
-#include "PDMissionGraphTypes.h"
 #include "PDMissionGraphSchemaActions.generated.h"
 
 class FSlateRect;
@@ -66,8 +64,6 @@ struct PDMISSIONEDITOR_API FMissionSchemaAction_NewNode : public FEdGraphSchemaA
 		return Cast<NodeType>(Action.PerformAction(ParentGraph, nullptr, Location));
 	}
 };
-
-//////////////////////////////////////////////////////////////////////
 
 /** Action to auto arrange the graph */
 USTRUCT()

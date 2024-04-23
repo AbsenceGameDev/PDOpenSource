@@ -4,22 +4,24 @@
 #include "Mission/FPDMissionEditor.h"
 #include "Mission/PDMissionBuilder.h"
 #include "Mission/Graph/PDMissionGraph.h"
-#include "Mission/Graph/PDMissionGraphNode.h"
-
-#include <EdGraph/EdGraphPin.h>
-#include <EdGraph/EdGraphSchema.h>
-#include <Framework/Views/TableViewMetadata.h>
-#include <Widgets/Input/STextComboBox.h>
-#include <Widgets/Views/STreeView.h>
+#include "Mission/Graph/PDMissionGraphNodes.h"
 
 #include "PDMissionEditor.h"
 #include "Subsystems/PDMissionSubsystem.h"
 
+#include <Editor.h>
+#include <ScopedTransaction.h>
+#include <EdGraph/EdGraphPin.h>
+#include <EdGraph/EdGraphSchema.h>
 
-#include "Framework/Application/SlateApplication.h"
-#include "Editor.h"
-#include "SGraphPanel.h"
-#include "ScopedTransaction.h"
+#include <Framework/Application/SlateApplication.h>
+#include <Framework/Views/TableViewMetadata.h>
+
+#include <SGraphPanel.h>
+#include <Widgets/Input/STextComboBox.h>
+#include <Widgets/Views/STreeView.h>
+
+
 
 #define LOCTEXT_NAMESPACE "FMissionTreeNode"
 

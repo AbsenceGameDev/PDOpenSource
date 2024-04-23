@@ -49,7 +49,7 @@ protected:
 	 */
 	uint32 bHaltRefresh : 1;
 
-	UEdGraphPin* FindGraphNodePin(UEdGraphNode* Node, EEdGraphPinDirection Dir);
+	static UEdGraphPin* FindGraphNodePin(UEdGraphNode* Node, EEdGraphPinDirection Dir); // moved to missiongraphhelpers, remove this soon
 };
 
 

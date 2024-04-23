@@ -314,6 +314,14 @@ private:
 	FGameplayTag MissionTag;
 };
 
+//
+// Struct pin widget
+class SPDStructBuilder : public SWidget
+{
+	SLATE_BEGIN_ARGS(SPDStructBuilder) {}
+	SLATE_END_ARGS()
+};
+
 
 //
 // Pin factory

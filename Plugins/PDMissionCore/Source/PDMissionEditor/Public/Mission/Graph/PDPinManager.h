@@ -3,19 +3,19 @@
 
 #include <CoreMinimal.h>
 
-
-#include "Mission/Graph/PDMissionGraphNode.h"
-#include "PDPinManager.generated.h"
-
+class UPDMissionGraphNode;
 // Manager to build or refresh a list of optional pins
 struct PDMISSIONEDITOR_API FPDOptionalPinManager : public FOptionalPinManager
 {
 public:
+	FPDOptionalPinManager(const uint8* InSampleStructMemory);
 	virtual ~FPDOptionalPinManager() { }
 
 	
-	// Customize automatically created pins if desired
-	virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, FProperty* Property) const override;
+	// Customize pins override is just calling the super class
+	// virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, FProperty* Property) const override { FOptionalPinManager::CustomizePinData(Pin, SourcePropertyName, ArrayIndex, Property); };
+	// Customize pins overload
+	virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, FProperty& Property, UPDMissionGraphNode* OwnerNode) const;
 	
 	/** Should the specified property be displayed by default */
 	virtual void GetRecordDefaults(FProperty* TestProperty, FOptionalPinFromProperty& Record) const;
@@ -25,7 +25,7 @@ public:
 
 	// hide and call base in funciton, as we can't change these declaration in 'FOptionalPinManager' to be virtual
 	void RebuildPropertyList(TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct);
-	void CreateVisiblePins(TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, EEdGraphPinDirection Direction, class UPDMissionGraphNode* TargetNode, uint8* StructBasePtr = nullptr, uint8* DefaultsPtr = nullptr);
+	void CreateVisiblePins(TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, EEdGraphPinDirection Direction, class UPDMissionGraphNode* TargetNode);
 	
 	/** Helper function to make consistent behavior between nodes that use optional pins */
 	static void CacheShownPins(const TArray<FOptionalPinFromProperty>& OptionalPins, TArray<FName>& OldShownPins);
@@ -33,122 +33,12 @@ public:
 	/** Helper function to make consistent behavior between nodes that use optional pins */
 	static void EvaluateOldShownPins(const TArray<FOptionalPinFromProperty>& OptionalPins, TArray<FName>& OldShownPins, UPDMissionGraphNode* Node);
 
-
 protected:
 	virtual void PostInitNewPin(UEdGraphPin* Pin, FOptionalPinFromProperty& Record, int32 ArrayIndex, FProperty* Property, uint8* PropertyAddress, uint8* DefaultPropertyAddress) const {}
 	virtual void PostRemovedOldPin(FOptionalPinFromProperty& Record, int32 ArrayIndex, FProperty* Property, uint8* PropertyAddress, uint8* DefaultPropertyAddress) const {}
 	void RebuildProperty(FProperty* TestProperty, FName CategoryName, TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, TMap<FName, FOldOptionalPinSettings>& OldSettings);
-};
 
-
-
-
-enum EPDRedirectType
-{
-	/* The pins do not match */
-	ERedirectType_None,
-	/* The pins match by name or redirect and have the same type (or we're ok with the mismatched type) */
-	ERedirectType_Name,
-	/* The pins match via a redirect and the value needs to also be redirected */
-	ERedirectType_Value,
-	/* The pins differ by type and have a default value*/
-	ERedirectType_DefaultValue,
-};
-
-
-// @todo rewrite kismet makestruct node for usage in the mission graph as intended
-UCLASS(MinimalAPI)
-class UPDMissionNode_MakeStruct : public UPDMissionGraphNode
-{
-	GENERATED_UCLASS_BODY()
-	
-	/**
-	* Returns false if:
-	*   1. The Struct has a 'native make' method
-	* Returns true if:
-	*   1. The Struct is tagged as BlueprintType
-	*   and
-	*   2. The Struct has any property that is tagged as CPF_BlueprintVisible and is not CPF_BlueprintReadOnly
-	*/
-	PDMISSIONEDITOR_API static bool CanBeMade(const UScriptStruct* Struct, bool bForInternalUse = false);
-	
-	/** Can this struct be used as a split pin */
-	PDMISSIONEDITOR_API static bool CanBeSplit(const UScriptStruct* Struct, UBlueprint* InBP);
-
-	// UObject interface
-	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
-	virtual void Serialize(FArchive& Ar) override;
-	// End of UObject interface
-
-	//~ Begin UEdGraphNode Interface
-	virtual void AllocateDefaultPins() override;
-	virtual void PreloadRequiredAssets();
-	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
-	virtual FLinearColor GetNodeTitleColor() const override;
-	virtual FText GetTooltipText() const override;
-	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
-	virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
-	virtual void PostPlacedNewNode() override;
-	//~ End  UEdGraphNode Interface
-
-	//~ Begin K2Node Interface
-	virtual bool NodeCausesStructuralBlueprintChange() const { return false; }
-	virtual bool IsNodePure() const { return true; }
-	virtual bool DrawNodeAsVariable() const { return false; }
-	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const;
-	virtual EPDRedirectType DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex)  const;
-	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const;
-	virtual FText GetMenuCategory() const;
-	virtual void ConvertDeprecatedNode(UEdGraph* Graph, bool bOnlySafeChanges);
-	//~ End K2Node Interface
-
-protected:
-	// Ensures the specified object is preloaded.  ReferencedObject can be NULL.
-	void PreloadObject(UObject* ReferencedObject)
-	{
-		if ((ReferencedObject != NULL) && ReferencedObject->HasAnyFlags(RF_NeedLoad))
-		{
-			ReferencedObject->GetLinker()->Preload(ReferencedObject);
-		}
-	}
-	
-	
-	struct FMakeStructPinManager : public FPDOptionalPinManager
-	{
-		const uint8* const SampleStructMemory;
-	public:
-		FMakeStructPinManager(const uint8* InSampleStructMemory);
-
-		bool HasAdvancedPins() const { return bHasAdvancedPins; }
-	protected:
-		virtual void GetRecordDefaults(FProperty* TestProperty, FOptionalPinFromProperty& Record) const override;
-		virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, FProperty* Property) const override;
-		virtual bool CanTreatPropertyAsOptional(FProperty* TestProperty) const override;
-
-		/** set by GetRecordDefaults(), mutable as it is a const function */
-		mutable bool bHasAdvancedPins;
-	};
-
-	
-public:
-	/** Helper property to handle upgrades from an old system of displaying pins for
-	 *	the override values that properties referenced as a conditional of being set in a struct */
-	UPROPERTY()
-	bool bMadeAfterOverridePinRemoval;
-
-	UPROPERTY(EditAnywhere, Category=PinOptions, EditFixedSize)
-	TArray<FOptionalPinFromProperty> ShowPinForProperties;
-
-private:
-	/** Constructing FText strings can be costly, so we cache the node's title/tooltip */
-	FNodeTextCache CachedTooltip;
-	FNodeTextCache CachedNodeTitle;
-
-	TArray<FName> OldShownPins;
-
-	/** Class that this variable is defined in.  */
-	UPROPERTY()
-	TObjectPtr<UScriptStruct> StructType;	
+	const uint8* const SampleStructMemory;
 };
 
 

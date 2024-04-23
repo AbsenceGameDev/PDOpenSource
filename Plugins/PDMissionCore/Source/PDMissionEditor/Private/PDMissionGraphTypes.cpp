@@ -4,7 +4,7 @@
 #include "PDMissionGraphTypes.h"
 
 #include "Mission/FPDMissionEditor.h"
-#include "Mission/Graph/PDMissionGraphNode.h"
+#include "Mission/Graph/PDMissionGraphNodes.h"
 #include "Mission/Slate/PDMissionView.h"
 
 // Engine
@@ -44,8 +44,12 @@ const FName FPDMissionGraphTypes::PinCategory_MissionName("MissionName");
 const FName FPDMissionGraphTypes::PinCategory_MissionRow("MissionRow");
 const FName FPDMissionGraphTypes::PinCategory_MissionDataRef("MissionDataRef");
 const FName FPDMissionGraphTypes::PinCategory_MissionRowKeyBuilder("MissionRowKeyBuilder");
-
 const FName FPDMissionGraphTypes::PinCategory_LogicalPath("LogicalPath");
+
+const FText FPDMissionGraphTypes::NodeText_MainMission(LOCTEXT("Missions","MainMission"));
+const FText FPDMissionGraphTypes::NodeText_SideMission(LOCTEXT("Missions","SideMission"));
+const FText FPDMissionGraphTypes::NodeText_EventMission(LOCTEXT("Missions","EventMission"));
+
 
 
 FPDMissionNodeData::FPDMissionNodeData(UClass* InClass) :

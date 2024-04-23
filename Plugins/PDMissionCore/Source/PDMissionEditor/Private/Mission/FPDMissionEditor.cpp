@@ -3,21 +3,22 @@
 
 // Mission gameplay and mission editor includes
 #include "Mission/FPDMissionEditor.h"
+#include "Subsystems/PDMissionSubsystem.h"
+#include "PDMissionCommon.h"
 
 #include "Mission/Graph/PDMissionGraph.h"
-#include "Mission/Graph/PDMissionGraphNode.h"
+#include "Mission/Graph/PDMissionGraphNodes.h"
+#include "Mission/Graph/PDMissionGraphSchema.h"
+#include "Mission/Slate/PDSearchMission.h"
+#include "PDMissionGraphTypes.h"
 
+#include "Mission/PDMissionBuilder.h"
+#include "Mission/PDMissionEditorModes.h"
 #include "Mission/PDMissionEditorToolbar.h"
 #include "Mission/PDMissionTabFactories.h"
 
-#include "PDMissionCommon.h"
-#include "PDMissionGraphTypes.h"
-
-#include "Mission/PDMissionEditorModes.h"
-#include "Mission/Slate/PDMissionView.h"
-#include "Mission/Slate/PDSearchMission.h"
-
 #include "PDMissionEditorCommands.h"
+
 
 // Engine 
 #include "EdGraphUtilities.h"
@@ -34,9 +35,6 @@
 
 
 #include "HAL/PlatformApplicationMisc.h"
-#include "Mission/PDMissionBuilder.h"
-#include "Mission/Graph/PDMissionGraphSchema.h"
-#include "Subsystems/PDMissionSubsystem.h"
 #include "WorkflowOrientedApp/WorkflowTabManager.h"
 
 #define LOCTEXT_NAMESPACE "MissionGraph"

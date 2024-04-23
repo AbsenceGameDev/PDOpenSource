@@ -22,12 +22,12 @@ public:
 
 	static FName GetStyleSetName();
 
+public:
+	static FName StyleSetName; // = (TEXT("PDMissionEditorStyle"));
+
 private:
 
 	static TSharedRef< class FSlateStyleSet > Create();
-
-private:
-
 	static TSharedPtr< class FSlateStyleSet > StyleInstance;
 };
 

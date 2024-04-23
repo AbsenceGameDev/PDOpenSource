@@ -9,6 +9,8 @@
 
 #define RootToContentDir Style->RootToContentDir
 
+FName FPDMissionEditorStyle::StyleSetName(TEXT("PDMissionEditorStyle"));
+
 TSharedPtr<FSlateStyleSet> FPDMissionEditorStyle::StyleInstance = nullptr;
 
 void FPDMissionEditorStyle::Initialize()
@@ -29,7 +31,6 @@ void FPDMissionEditorStyle::Shutdown()
 
 FName FPDMissionEditorStyle::GetStyleSetName()
 {
-	static FName StyleSetName(TEXT("PDMissionEditorStyle"));
 	return StyleSetName;
 }
 
@@ -38,7 +39,7 @@ const FVector2D Icon20x20(20.0f, 20.0f);
 
 TSharedRef< FSlateStyleSet > FPDMissionEditorStyle::Create()
 {
-	TSharedRef< FSlateStyleSet > Style = MakeShareable(new FSlateStyleSet("PDMissionEditorStyle"));
+	TSharedRef< FSlateStyleSet > Style = MakeShareable(new FSlateStyleSet(StyleSetName));
 	Style->SetContentRoot(IPluginManager::Get().FindPlugin("PDMissionCore")->GetBaseDir() / TEXT("Resources"));
 	Style->Set("PDMissionEditor.OpenPluginWindow", new IMAGE_BRUSH_SVG(TEXT("pdMIcon"), Icon20x20));
 

@@ -2,15 +2,14 @@
 
 #pragma once
 
-
 #include <CoreMinimal.h>
 #include <UObject/ObjectMacros.h>
 #include <EdGraph/EdGraphNode.h>
 
-#include "PDMissionGraph.h"
+#include "PDMissionGraphNodeBase.h"
 #include "PDMissionGraphTypes.h"
 
-#include "PDMissionGraphNode.generated.h"
+#include "PDMissionGraphNodes.generated.h"
 
 class UPDMissionTransitionNode;
 class UEdGraph;
@@ -18,121 +17,6 @@ class UEdGraphPin;
 class UEdGraphSchema;
 struct FDiffResults;
 struct FDiffSingleResult;
-
-UCLASS()
-class PDMISSIONEDITOR_API UPDMissionGraphNode : public UEdGraphNode
-{
-	GENERATED_UCLASS_BODY()
-
-public:	
-	//~ Begin UEdGraphNode Interface
-	virtual class UPDMissionGraph* GetMissionGraph();
-	virtual void AutowireNewNode(UEdGraphPin* FromPin) override;
-	virtual void PostPlacedNewNode() override;
-	virtual void PrepareForCopying() override;
-	virtual bool CanDuplicateNode() const override;
-	virtual bool CanUserDeleteNode() const override;
-	virtual void DestroyNode() override;
-	virtual FText GetTooltipText() const override;
-	virtual void NodeConnectionListChanged() override;
-
-	/** Create a visual widget to represent this node in a graph editor or graph panel.  If not implemented, the default node factory will be used. */
-	virtual TSharedPtr<SGraphNode> CreateVisualWidget();
-
-	/** Create the background image for the widget representing this node */
-	// virtual TSharedPtr<SWidget> CreateNodeImage() const { return TSharedPtr<SWidget>(); }
-	
-	
-	virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const override;
-	virtual void FindDiffs(class UEdGraphNode* OtherNode, struct FDiffResults& Results) override;
-	virtual FString GetPropertyNameAndValueForDiff(const FProperty* Prop, const uint8* PropertyAddr) const override;
-	//~ End UEdGraphNode Interface
-
-	//~ Begin UObject Interface
-#if WITH_EDITOR
-	virtual void PostEditImport() override;
-	virtual void PostEditUndo() override;
-#endif
-	// End UObject
-
-	// @return the input pin for this state
-	virtual UEdGraphPin* GetInputPin(int32 InputIndex = 0) const;
-	// @return the output pin for this state
-	virtual UEdGraphPin* GetOutputPin(int32 InputIndex = 0) const;
-	virtual UEdGraph* GetBoundGraph() const { return nullptr; }
-
-	virtual FText GetDescription() const;
-	virtual void PostCopyNode();
-
-	void AddSubNode(UPDMissionGraphNode* SubNode, class UEdGraph* ParentGraph);
-	void RemoveSubNode(UPDMissionGraphNode* SubNode);
-	virtual void RemoveAllSubNodes();
-	virtual void OnSubNodeRemoved(UPDMissionGraphNode* SubNode);
-	virtual void OnSubNodeAdded(UPDMissionGraphNode* SubNode);
-
-	virtual int32 FindSubNodeDropIndex(UPDMissionGraphNode* SubNode) const;
-	virtual void InsertSubNodeAt(UPDMissionGraphNode* SubNode, int32 DropIndex);
-
-	/** check if node is sub-node */
-	virtual bool IsSubNode() const;
-
-	/** initialize instance object  */
-	virtual void InitializeInstance();
-
-	/** updates ClassData from node instance */
-	virtual void UpdateNodeClassData();
-
-	/** Check if node instance uses blueprint for its implementation */
-	bool UsesBlueprint() const;
-
-	/** check if node has any errors, used for assigning colors on graph */
-	virtual bool HasErrors() const;
-
-	virtual bool CanPlaceBreakpoints() const { return false; }
-	
-	void RefreshDataRefPins(const FName& MissionRowName);
-
-	FString GetMissionName() { return "finish me"; }
-	
-	void GetMissionTransitions(TArray<UPDMissionTransitionNode*>& Array); // Get all mission transition for this node
-
-	static void UpdateNodeDataFrom(UClass* InstanceClass, FPDMissionNodeData& UpdatedData);
-
-protected:
-
-	virtual void ResetNodeOwner();
-
-
-	void CreateMissionPin();
-
-
-public:
-
-	/** instance class */
-	UPROPERTY()
-	struct FPDMissionNodeData ClassData;
-
-	UPROPERTY()
-	TObjectPtr<UStruct> NodeInstance;
-
-	UPROPERTY(transient)
-	TObjectPtr<UPDMissionGraphNode> ParentNode;
-
-	UPROPERTY()
-	TArray<TObjectPtr<UPDMissionGraphNode>> SubNodes;
-
-	/** sub-node index assigned during copy operation to connect nodes again on paste */
-	UPROPERTY()
-	int32 CopySubNodeIndex;
-
-	/** if set, all modifications (including delete/cut) are disabled */
-	UPROPERTY()
-	uint32 bIsReadOnly : 1;
-
-	/** if set, this node will be always considered as a sub-node */
-	UPROPERTY()
-	uint32 bIsSubNode : 1;
-};
 
 
 /** Root node of this mission block */
@@ -150,11 +34,14 @@ public:
 	
 	virtual void AllocateDefaultPins() override
 	{
-		// Custom pins (Input)
+		// Custom pins (Selector Input)
 		CreateMissionPin(); // @todo when set, generate the mission/questline in the graph using this node as its root
-		
-		// No pins for requirements
+
+		// Logical Output
 		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("Out"));
+
+		// Custom pins (Data Input)
+		Super::AllocateDefaultPins(); // super call generates the entries for the mission data
 	}
 	
 	virtual FLinearColor GetNodeBodyTintColor() const override
@@ -186,6 +73,13 @@ public:
 
 		// Simple pins (Output)		
 		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("Out"));
+
+		Super::AllocateDefaultPins(); // super call generates the entries for the mission data
+	}
+
+	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override
+	{
+		return FPDMissionGraphTypes::NodeText_MainMission; ;
 	}
 	
 	virtual FLinearColor GetNodeBodyTintColor() const override
@@ -216,7 +110,14 @@ public:
 
 		// Simple pins (Output)
 		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("Out"));
+
+		Super::AllocateDefaultPins(); // super call generates the entries for the mission data
 	}
+
+	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override
+	{
+		return FPDMissionGraphTypes::NodeText_SideMission;
+	}	
 	
 	virtual FLinearColor GetNodeBodyTintColor() const override
 	{
@@ -247,7 +148,14 @@ public:
 
 		// Simple pins (Output)
 		CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("Out"));
+
+		Super::AllocateDefaultPins(); // super call generates the entries for the mission data
 	}
+
+	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override
+	{
+		return FPDMissionGraphTypes::NodeText_EventMission;
+	}		
 	
 	virtual FLinearColor GetNodeBodyTintColor() const override
 	{
@@ -337,19 +245,19 @@ class UPDMissionTransitionNode : public UEdGraphNode
 	
 	PDMISSIONEDITOR_API UPDMissionGraphNode* GetOwningMission() const;
 	PDMISSIONEDITOR_API UPDMissionGraphNode* GetTargetMission() const;
-	PDMISSIONEDITOR_API void CreateConnections(UPDMissionGraphNode* PreviousState, UPDMissionGraphNode* NextState);
+	PDMISSIONEDITOR_API void CreateConnections(const UPDMissionGraphNode* PreviousState, const UPDMissionGraphNode* NextState);
 
 	/**
 	 * Relink transition head (where the arrow is of a state transition) to a new state.
 	 * @param[in] NewTargetState The new transition target.
 	 */
-	PDMISSIONEDITOR_API void RelinkHead(UPDMissionGraphNode* NewTargetState);
+	PDMISSIONEDITOR_API void RelinkHead(const UPDMissionGraphNode* NewTargetState);
 
 	/**
 	 * Helper function to gather the transition nodes to be relinked by taking the graph selection into account as well.
 	 * For example when relinking a transition holding several transition nodes but only a few are selected to be relinked.
 	 */
-	PDMISSIONEDITOR_API static TArray<UPDMissionTransitionNode*> GetListTransitionNodesToRelink(UEdGraphPin* SourcePin, UEdGraphPin* OldTargetPin, const TArray<UEdGraphNode*>& InSelectedGraphNodes);
+	PDMISSIONEDITOR_API static TArray<UPDMissionTransitionNode*> GetListTransitionNodesToRelink(const UEdGraphPin* SourcePin, const UEdGraphPin* OldTargetPin, const TArray<UEdGraphNode*>& InSelectedGraphNodes);
 	
 };
 

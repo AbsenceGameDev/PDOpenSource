@@ -1,9 +1,7 @@
 ﻿/* @author: Ario Amin @ Permafrost Development. @copyright: Full BSL(1.1) License included at bottom of the file  */
 
 #include "Mission/Graph/PDMissionGraph.h"
-#include "Mission/Graph/PDMissionGraphNode.h"
-#include "PDMissionEditor.h"
-#include "PDMissionGraphTypes.h"
+#include "Mission/Graph/PDMissionGraphNodeBase.h"
 
 #include "Containers/Array.h"
 #include "Containers/EnumAsByte.h"
@@ -70,7 +68,7 @@ void UPDMissionGraph::UpdateClassData()
 	}
 	
 	TMap<UPDMissionGraphNode*,int32> SubNodesToUpdate{};
-	for (int32 NodeIdx : NodesToUpdate)
+	for (const int32 NodeIdx : NodesToUpdate)
 	{
 		UPDMissionGraphNode* Node = Cast<UPDMissionGraphNode>(Nodes[NodeIdx]);
 		Node->UpdateNodeClassData();
@@ -81,10 +79,10 @@ void UPDMissionGraph::UpdateClassData()
 		}
 	}
 	
-	for (int32 IdxOfInvalidNode : NodesToSkip)
-	{
-		// @todo remove invalid entries + log warnings or errors
-	}
+	// @todo remove invalid entries + log warnings or errors
+	// for (int32 IdxOfInvalidNode : NodesToSkip)
+	// {
+	// }
 }
 
 void UPDMissionGraph::OnNodesPasted(const FString& ImportStr)

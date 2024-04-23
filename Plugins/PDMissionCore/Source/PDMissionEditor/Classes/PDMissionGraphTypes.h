@@ -158,6 +158,9 @@ struct PDMISSIONEDITOR_API FPDMissionGraphTypes
 	static const FName PinCategory_MissionDataRef;
 	static const FName PinCategory_MissionRowKeyBuilder;
 	static const FName PinCategory_LogicalPath;
+	static const FText NodeText_MainMission;
+	static const FText NodeText_SideMission;
+	static const FText NodeText_EventMission;
 };
 
 /** @brief Constexpr colours */

@@ -2,7 +2,7 @@
 
 // Mission editor
 #include "Mission/Graph/PDMissionGraphSchemaActions.h"
-#include "Mission/Graph/PDMissionGraphNode.h"
+#include "Mission/Graph/PDMissionGraphNodes.h"
 #include "Mission/Graph/PDMissionGraph.h"
 #include "PDMissionGraphTypes.h"
 
@@ -22,7 +22,6 @@
 // Commands
 #include "Framework/Commands/UIAction.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
-#include "Engine/UserDefinedStruct.h"
 
 #define LOCTEXT_NAMESPACE "MissionGraph"
 
@@ -192,50 +191,44 @@ UEdGraphNode* FMissionSchemaAction_NewNode::PerformAction(class UEdGraph* Parent
 	UEdGraphNode* ResultNode = nullptr;
 
 	// If there is a template, we actually use it
-	if (NodeTemplate != nullptr)
+	if (NodeTemplate == nullptr) { return ResultNode; }
+	
+	const FScopedTransaction Transaction(LOCTEXT("AddNode", "Add Node"));
+	ParentGraph->Modify();
+	if (FromPin)
 	{
-		const FScopedTransaction Transaction(LOCTEXT("AddNode", "Add Node"));
-		ParentGraph->Modify();
-		if (FromPin)
-		{
-			FromPin->Modify();
-		}
-
-		NodeTemplate->SetFlags(RF_Transactional);
-
-		// set outer to be the graph so it doesn't go away
-		NodeTemplate->Rename(nullptr, ParentGraph, REN_NonTransactional);
-		ParentGraph->AddNode(NodeTemplate, true);
-
-		NodeTemplate->CreateNewGuid();
-		NodeTemplate->PostPlacedNewNode();
-
-		// For input pins, new node will generally overlap node being dragged off
-		// Work out if we want to visually push away from connected node
-		int32 XLocation = static_cast<int32>(Location.X);
-		if (FromPin && FromPin->Direction == EGPD_Input)
-		{
-			const UEdGraphNode* PinNode = FromPin->GetOwningNode();
-			const FVector::FReal XDelta = FMath::Abs(PinNode->NodePosX - Location.X);
-
-			if (XDelta < NodeDistance)
-			{
-				// Set location to edge of current node minus the max move distance
-				// to force node to push off from connect node enough to give selection handle
-				XLocation = PinNode->NodePosX - NodeDistance;
-			}
-		}
-
-		NodeTemplate->NodePosX = XLocation;
-		NodeTemplate->NodePosY = static_cast<int32>(Location.Y);
-		NodeTemplate->SnapToGrid(GetDefault<UEditorStyleSettings>()->GridSnapSize);
-
-		// setup pins after placing node in correct spot, since pin sorting will happen as soon as link connection change occurs
-		NodeTemplate->AllocateDefaultPins();
-		NodeTemplate->AutowireNewNode(FromPin);
-
-		ResultNode = NodeTemplate;
+		FromPin->Modify();
 	}
+	NodeTemplate->SetFlags(RF_Transactional);
+
+	// set outer to be the graph so it doesn't go away
+	NodeTemplate->Rename(nullptr, ParentGraph, REN_NonTransactional);
+	ParentGraph->AddNode(NodeTemplate, true);
+	NodeTemplate->CreateNewGuid();
+	NodeTemplate->PostPlacedNewNode();
+	// For input pins, new node will generally overlap node being dragged off
+	// Work out if we want to visually push away from connected node
+	int32 XLocation = static_cast<int32>(Location.X);
+	if (FromPin && FromPin->Direction == EGPD_Input)
+	{
+		const UEdGraphNode* PinNode = FromPin->GetOwningNode();
+		const FVector::FReal XDelta = FMath::Abs(PinNode->NodePosX - Location.X);
+		if (XDelta < NodeDistance)
+		{
+			// Set location to edge of current node minus the max move distance
+			// to force node to push off from connect node enough to give selection handle
+			XLocation = PinNode->NodePosX - NodeDistance;
+		}
+	}
+	
+	NodeTemplate->NodePosX = XLocation;
+	NodeTemplate->NodePosY = static_cast<int32>(Location.Y);
+	NodeTemplate->SnapToGrid(GetDefault<UEditorStyleSettings>()->GridSnapSize);
+
+	// setup pins after placing node in correct spot, since pin sorting will happen as soon as link connection change occurs
+	NodeTemplate->AllocateDefaultPins();
+	NodeTemplate->AutowireNewNode(FromPin);
+	ResultNode = NodeTemplate;
 
 	return ResultNode;
 }

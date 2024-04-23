@@ -2,7 +2,7 @@
 
 #include "Mission/PDMissionBuilder.h"
 #include "Mission/Graph/PDMissionGraph.h"
-#include "Mission/Graph/PDMissionGraphNode.h"
+#include "Mission/Graph/PDMissionGraphNodes.h"
 #include "Mission/Graph/PDMissionGraphSchema.h"
 #include "PDMissionGraphTypes.h"
 
