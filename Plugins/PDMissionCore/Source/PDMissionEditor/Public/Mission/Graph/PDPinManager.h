@@ -3,6 +3,15 @@
 
 #include <CoreMinimal.h>
 
+UENUM()
+enum class EPDPinCustomizer
+{
+	CONTINUE UMETA(DisplayName = "Contine parsing"),
+	SKIPPAST UMETA(DisplayName = "Skip past current pin"),
+	STOPAT UMETA(DisplayName = "Stop at current pin"),
+	STOPDEPTHLIM UMETA(DisplayName = "Stop at last depth limit"),
+};
+
 class UPDMissionGraphNode;
 // Manager to build or refresh a list of optional pins
 struct PDMISSIONEDITOR_API FPDOptionalPinManager : public FOptionalPinManager
@@ -14,8 +23,9 @@ public:
 	
 	// Customize pins override is just calling the super class
 	// virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, FProperty* Property) const override { FOptionalPinManager::CustomizePinData(Pin, SourcePropertyName, ArrayIndex, Property); };
-	// Customize pins overload
-	virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, FProperty& Property, UPDMissionGraphNode* OwnerNode) const;
+
+	// Customize pins overload, iterates a mission row and adds custom pins for its inner properties
+	virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, FProperty& Property, UPDMissionGraphNode* OwnerNode, EPDPinCustomizer Current = EPDPinCustomizer::CONTINUE) const;
 	
 	/** Should the specified property be displayed by default */
 	virtual void GetRecordDefaults(FProperty* TestProperty, FOptionalPinFromProperty& Record) const;

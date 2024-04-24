@@ -5,11 +5,13 @@
 #include "Mission/FPDMissionEditor.h"
 #include "Subsystems/PDMissionSubsystem.h"
 #include "PDMissionCommon.h"
+#include "PDMissionEditor.h"
 
 #include "Mission/Graph/PDMissionGraph.h"
 #include "Mission/Graph/PDMissionGraphNodes.h"
 #include "Mission/Graph/PDMissionGraphSchema.h"
 #include "Mission/Slate/PDSearchMission.h"
+#include "Mission/Slate/PDMissionView.h"
 #include "PDMissionGraphTypes.h"
 
 #include "Mission/PDMissionBuilder.h"
@@ -18,7 +20,6 @@
 #include "Mission/PDMissionTabFactories.h"
 
 #include "PDMissionEditorCommands.h"
-
 
 // Engine 
 #include "EdGraphUtilities.h"
@@ -31,8 +32,6 @@
 #include "Framework/Commands/GenericCommands.h"
 #include "Editor/EditorEngine.h"
 #include "EngineGlobals.h"
-#include "PDMissionEditor.h"
-
 
 #include "HAL/PlatformApplicationMisc.h"
 #include "WorkflowOrientedApp/WorkflowTabManager.h"
@@ -92,7 +91,7 @@ FGraphPanelSelectionSet FFPDMissionGraphEditor::GetSelectedNodes() const
 {
 	const TSharedPtr<SGraphEditor> FocusedGraphEd = FocusGraphEditorPtr.Pin();
 	if (FocusedGraphEd == nullptr) { return FGraphPanelSelectionSet{}; }
-
+	
 	return FocusedGraphEd->GetSelectedNodes();
 }
 
@@ -1030,7 +1029,6 @@ void FFPDMissionGraphEditor::OnClassListUpdated()
 	OnSelectedNodesChanged(CurrentSelection);
 	MissionGraph->UpdateData();
 }
-
 
 #undef LOCTEXT_NAMESPACE
 

@@ -273,6 +273,7 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mission|Rules")
 	FPDMissionTagCompound MissionConditionHandler{};
 
+	/** @brief Branching conditions for this mission  */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mission|Rules")
 	FPDMissionBranch NextMissionBranch;
 
@@ -338,6 +339,63 @@ struct PDMISSIONCORE_API FPDMissionRow : public FTableRowBase
 	FPDMissionMetadata Metadata {};
 };
 
+
+//
+// Legal according to ISO due to explicit template instantiation bypassing access rules
+
+// Creates a static data member of type Tag::TType in which to store the address of a private member.
+template <class Tag>
+class TPrivateAccessor
+{
+public:
+	static typename Tag::PrivateType TypeValue;
+}; 
+template <class Tag> 
+typename Tag::PrivateType TPrivateAccessor<Tag>::TypeValue;
+
+// Create a static data member whose constructor initializes TPrivateAccessor<Tag>::TypeValue with the private member we want to access
+template <class TTag, typename TTag::PrivateType PrivateType>
+class TTagPrivateMember
+{
+public:
+	TTagPrivateMember() { TPrivateAccessor<TTag>::TypeValue = PrivateType; }
+	static TTagPrivateMember ExplicitInstance;
+};
+template <class TTag, typename TTag::PrivateType PrivateType> 
+TTagPrivateMember<TTag,PrivateType> TTagPrivateMember<TTag,PrivateType>::ExplicitInstance;
+
+template <typename TTypeMember>
+class TAccessorTypeHandler { public: typedef TTypeMember* PrivateType; };
+
+// Usage 
+// Each distinct private member to access should have its own tag.
+// Each tag should contain a nested ::PrivateType that is the corresponding pointer-to-member type.
+
+struct FPDExamplePrivateMemberHolder
+{
+private:
+	static inline int8 _CatchMeIfYouCan_Int8 = 1;
+	static inline int64 _CatchMeIfYouCan_Int64 = 2;
+	static inline float _CatchMeIfYouCan_Float = 3;
+	static inline double _CatchMeIfYouCan_Double = 4;
+	static inline FPDMissionRow _CatchMeIfYouCan_FPDMissionRow{};
+	
+};
+
+//  Tag private member for safe access
+template class TTagPrivateMember<TAccessorTypeHandler<int8> , &FPDExamplePrivateMemberHolder::_CatchMeIfYouCan_Int8>;
+template class TTagPrivateMember<TAccessorTypeHandler<int64> , &FPDExamplePrivateMemberHolder::_CatchMeIfYouCan_Int64>;
+template class TTagPrivateMember<TAccessorTypeHandler<float> , &FPDExamplePrivateMemberHolder::_CatchMeIfYouCan_Float>;
+template class TTagPrivateMember<TAccessorTypeHandler<double> , &FPDExamplePrivateMemberHolder::_CatchMeIfYouCan_Double>;
+template class TTagPrivateMember<TAccessorTypeHandler<FPDMissionRow> , &FPDExamplePrivateMemberHolder::_CatchMeIfYouCan_FPDMissionRow>;
+inline void ExampleFunction()
+{
+	int8* PrivateInt8Ptr = TPrivateAccessor<TAccessorTypeHandler<int8>>::TypeValue;
+	int64* PrivateInt64Ptr = TPrivateAccessor<TAccessorTypeHandler<int64>>::TypeValue;
+	float* PrivateFloatPtr = TPrivateAccessor<TAccessorTypeHandler<float>>::TypeValue;
+	double* PrivateDoublePtr = TPrivateAccessor<TAccessorTypeHandler<double>>::TypeValue;
+	FPDMissionRow* PrivateMissionRowPtr = TPrivateAccessor<TAccessorTypeHandler<FPDMissionRow>>::TypeValue;
+}
 
 /**
 Business Source License 1.1

@@ -20,10 +20,20 @@
 #include <SGraphPanel.h>
 #include <Widgets/Input/STextComboBox.h>
 #include <Widgets/Views/STreeView.h>
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
-
+#include <Editor/GraphEditor/Private/DragConnection.h>
+#include <Framework/Commands/GenericCommands.h>
+#include <TutorialMetaData.h>
+#include <SCommentBubble.h>
 
 #define LOCTEXT_NAMESPACE "FMissionTreeNode"
+
+class FText;
+class SWidget;
+struct FGeometry;
+struct FSlateBrush;
+
 
 //
 // FMissionTreeNode
@@ -330,6 +340,21 @@ void SMissionGraphNode::AddPin(const TSharedRef<SGraphPin>& PinToAdd)
 		OutputPins.Add(PinToAdd);
 	}
 }
+
+
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+void SMissionGraphNode::UpdateGraphNode()
+{
+	SGraphNode::UpdateGraphNode(); // @todo replace with custom styling, this virtual is the function the SGraphNode uses to set up it's slate style
+}
+
+bool SMissionGraphNode::UseLowDetailNodeTitles() const
+{
+	return SGraphNode::UseLowDetailNodeTitles();
+}
+
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 FReply SMissionGraphNode::OnMouseMove(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent)
 {
@@ -841,7 +866,60 @@ void SGraphNodeMissionTransition::PositionBetweenTwoNodesWithOffset(const FGeome
 	GraphNode->NodePosY = static_cast<int32>(NewCorner.Y);
 }
 
+SPDLODBranchNode::SPDLODBranchNode()
+	: LastCachedValue(INDEX_NONE)
+	, ChildSlotLowDetail(SNullWidget::NullWidget)
+	, ChildSlotHighDetail(SNullWidget::NullWidget)
+{
+}
 
+void SPDLODBranchNode::Construct(const FArguments& InArgs)
+{
+	OnGetActiveDetailSlotContent = InArgs._OnGetActiveDetailSlotContent;
+	ShowLowDetailAttr = InArgs._UseLowDetailSlot;
+	ChildSlotLowDetail = InArgs._LowDetail.Widget;
+	ChildSlotHighDetail = InArgs._HighDetail.Widget;
+
+	const int32 CurrentValue = ShowLowDetailAttr.Get() ? 1 : 0;
+	if (OnGetActiveDetailSlotContent.IsBound())
+	{
+		ChildSlot[OnGetActiveDetailSlotContent.Execute((CurrentValue != 0) ? false : true)];
+	}
+	else
+	{
+		ChildSlot[(CurrentValue != 0) ? ChildSlotLowDetail : ChildSlotHighDetail];
+	}
+
+}
+
+void SPDLODBranchNode::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	RefreshLODSlotContent();
+}
+
+void SPDLODBranchNode::RefreshLODSlotContent()
+{
+	const int32 CurrentValue = ShowLowDetailAttr.Get() ? 1 : 0;
+	if (CurrentValue != LastCachedValue)
+	{
+		LastCachedValue = CurrentValue;
+
+		if (OnGetActiveDetailSlotContent.IsBound())
+		{
+			ChildSlot
+				[
+					OnGetActiveDetailSlotContent.Execute((CurrentValue != 0) ? false : true)
+				];
+		}
+		else
+		{
+			ChildSlot
+				[
+					(CurrentValue != 0) ? ChildSlotLowDetail : ChildSlotHighDetail
+				];
+		}
+	}
+}
 
 //
 // PINS
@@ -1017,14 +1095,320 @@ TSharedPtr<SGraphPin> FPDAttributeGraphPinFactory::CreatePin(UEdGraphPin* InPin)
 	}
 	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_MissionRowKeyBuilder)
 	{
-		return SNew(SPDNewKeyDataAttributePin, InPin); 
+		return SNew(SPDNewKeyDataAttributePin, InPin);  // @todo SPDNewKeyDataAttributePin
 	}
 	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_MissionDataRef && InPin->PinType.PinSubCategoryObject == FPDMissionRow::StaticStruct())
 	{
-		return SNew(SPDDataAttributePin, InPin); 
+		return SNew(SPDDataAttributePin, InPin);  // @todo SPDDataAttributePin
 	}
 	
 	return FGraphPanelPinFactory::CreatePin(InPin);
+}
+
+
+namespace SKnotNodeDefinitions
+{
+	/** Offset from the left edge to display comment toggle button at */
+	static const float KnotCenterButtonAdjust = 3.f;
+
+	/** Offset from the left edge to display comment bubbles at */
+	static const float KnotCenterBubbleAdjust = 20.f;
+
+	/** Knot node spacer sizes */
+	static const FVector2D NodeSpacerSize(42.0f, 24.0f);
+}
+
+/////////////////////////////////////////////////////
+// SMissionGraphPinKnot
+
+void SMissionGraphPinKnot::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
+{
+	SGraphPin::Construct(SGraphPin::FArguments().SideToSideMargin(0.0f), InPin);
+}
+
+void SMissionGraphPinKnot::OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent)
+{
+	TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
+	if (Operation.IsValid() && Operation->IsOfType<FDragConnection>())
+	{
+		TSharedPtr<FDragConnection> DragConnectionOp = StaticCastSharedPtr<FDragConnection>(Operation);
+
+		TArray<UEdGraphPin*> ValidPins;
+		DragConnectionOp->ValidateGraphPinList(/*out*/ ValidPins);
+		
+		if (ValidPins.Num() > 0)
+		{
+			UEdGraphPin* PinToHoverOver = nullptr;
+			UEdGraphNode* Knot = GraphPinObj->GetOwningNode();
+			int32 InputPinIndex = -1;
+			int32 OutputPinIndex = -1;
+
+			if (Knot != nullptr && Knot->ShouldDrawNodeAsControlPointOnly(InputPinIndex, OutputPinIndex))
+			{
+				// Dragging to another pin, pick the opposite direction as a source to maximize connection chances
+				PinToHoverOver = (ValidPins[0]->Direction == EGPD_Input) ? Knot->GetPinAt(OutputPinIndex) : Knot->GetPinAt(InputPinIndex);
+				check(PinToHoverOver);
+			}
+
+			if (PinToHoverOver != nullptr)
+			{
+				DragConnectionOp->SetHoveredPin(PinToHoverOver);
+
+				// Pins treat being dragged over the same as being hovered outside of drag and drop if they know how to respond to the drag action.
+				SBorder::OnMouseEnter(MyGeometry, DragDropEvent);
+
+				return;
+			}
+		}
+	}
+
+	SGraphPin::OnDragEnter(MyGeometry, DragDropEvent);
+}
+
+FSlateColor SMissionGraphPinKnot::GetPinColor() const
+{
+	// Make ourselves transparent if we're the input, since we are underneath the output pin and would double-blend looking ugly
+	if (UEdGraphPin* PinObj = GetPinObj())
+	{
+		if (PinObj->Direction == EEdGraphPinDirection::EGPD_Input)
+		{
+			return FLinearColor::Transparent;
+		} 
+	}
+	return SGraphPin::GetPinColor();
+}
+
+TSharedRef<SWidget>	SMissionGraphPinKnot::GetDefaultValueWidget()
+{
+	return SNullWidget::NullWidget;
+}
+
+TSharedRef<FDragDropOperation> SMissionGraphPinKnot::SpawnPinDragEvent(const TSharedRef<SGraphPanel>& InGraphPanel, const TArray< TSharedRef<SGraphPin> >& InStartingPins)
+{
+	// FAmbivalentDirectionDragConnection::FDraggedPinTable PinHandles;
+	// PinHandles.Reserve(InStartingPins.Num());
+	// // since the graph can be refreshed and pins can be reconstructed/replaced 
+	// // behind the scenes, the DragDropOperation holds onto FGraphPinHandles 
+	// // instead of direct widgets/graph-pins
+	// for (const TSharedRef<SGraphPin>& PinWidget : InStartingPins)
+	// {
+	// 	PinHandles.Add(PinWidget->GetPinObj());
+	// }
+	//
+	// TSharedRef<FAmbivalentDirectionDragConnection> Operation = FAmbivalentDirectionDragConnection::New(GetPinObj()->GetOwningNode(), InGraphPanel, PinHandles);
+	// return Operation;
+
+	return TSharedRef<FDragDropOperation>(); // @ todo, missing classes only available in private modules, will have to recreate them or load in the private modules myself
+}
+
+FReply SMissionGraphPinKnot::OnPinMouseDown(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent)
+{
+	if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+	{
+		if (!GraphPinObj->bNotConnectable && IsEditingEnabled())
+		{
+			if (MouseEvent.IsAltDown())
+			{
+				// Normally break connections, but overloaded here to delete the node entirely
+				const FScopedTransaction Transaction(FGenericCommands::Get().Delete->GetDescription());
+
+				UEdGraphNode* NodeToDelete = GetPinObj()->GetOwningNode();
+				if (NodeToDelete != nullptr)
+				{
+					UEdGraph* Graph = NodeToDelete->GetGraph();
+					if (Graph != nullptr)
+					{
+						const UEdGraphSchema* Schema = Graph->GetSchema();
+						if (Schema != nullptr && Schema->SafeDeleteNodeFromGraph(Graph, NodeToDelete))
+						{
+							return FReply::Handled();
+						}
+					}
+				}
+
+				return FReply::Unhandled();
+			}
+			else if (MouseEvent.IsControlDown())
+			{
+				// Normally moves the connections from one pin to another, but moves the node instead since it's really representing a set of connections
+				// Returning unhandled will cause the node behind us to catch it and move us
+				return FReply::Unhandled();
+			}
+		}
+	}
+
+	return SGraphPin::OnPinMouseDown(SenderGeometry, MouseEvent);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// SGraphNodeKnot
+
+void SMissionGraphNodeKnot::Construct(const FArguments& InArgs, UEdGraphNode* InKnot)
+{
+	int32 InputPinIndex = -1;
+	int32 OutputPinIndex = -1;
+	verify(InKnot->ShouldDrawNodeAsControlPointOnly(InputPinIndex, OutputPinIndex) == true &&
+		InputPinIndex >= 0 && OutputPinIndex >= 0);
+	SGraphNodeDefault::Construct(SGraphNodeDefault::FArguments().GraphNodeObj(InKnot));
+}
+
+
+void SMissionGraphNodeKnot::UpdateGraphNode()
+{
+	InputPins.Empty();
+	OutputPins.Empty();
+
+	// Reset variables that are going to be exposed, in case we are refreshing an already setup node.
+	RightNodeBox.Reset();
+	LeftNodeBox.Reset();
+
+	//@TODO: Keyboard focus on edit doesn't work unless the node is visible, but the text is just the comment and it's already shown in a bubble, so Transparent black it is...
+	InlineEditableText = SNew(SInlineEditableTextBlock)
+		.ColorAndOpacity(FLinearColor::Transparent)
+		.Style(FAppStyle::Get(), "Graph.Node.NodeTitleInlineEditableText")
+		.Text(this, &SMissionGraphNodeKnot::GetEditableNodeTitleAsText)
+		.OnVerifyTextChanged(this, &SMissionGraphNodeKnot::OnVerifyNameTextChanged)
+		.OnTextCommitted(this, &SMissionGraphNodeKnot::OnNameTextCommited)
+		.IsReadOnly(this, &SMissionGraphNodeKnot::IsNameReadOnly)
+		.IsSelected(this, &SMissionGraphNodeKnot::IsSelectedExclusively);
+
+	this->ContentScale.Bind( this, &SGraphNode::GetContentScale );
+
+	this->GetOrAddSlot( ENodeZone::Center )
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Center)
+		[
+			SNew(SOverlay)
+			+SOverlay::Slot()
+			[
+				// Grab handle to be able to move the node
+				SNew(SSpacer)
+				.Size(SKnotNodeDefinitions::NodeSpacerSize)
+				.Visibility(EVisibility::Visible)
+				.Cursor(EMouseCursor::CardinalCross)
+			]
+
+			+SOverlay::Slot()
+// 			.VAlign(VAlign_Center)
+// 			.HAlign(HAlign_Center)
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.VAlign(VAlign_Top)
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						[
+							// LEFT
+							SAssignNew(LeftNodeBox, SVerticalBox)
+						]
+						+SOverlay::Slot()
+						[
+							// RIGHT
+							SAssignNew(RightNodeBox, SVerticalBox)
+						]
+					]
+				]
+			]
+		];
+	// Create comment bubble
+	const FSlateColor CommentColor = GetDefault<UGraphEditorSettings>()->DefaultCommentNodeTitleColor;
+
+	SAssignNew(CommentBubble, SCommentBubble)
+	.GraphNode(GraphNode)
+	.Text(this, &SGraphNode::GetNodeComment)
+	.OnTextCommitted(this, &SGraphNode::OnCommentTextCommitted)
+	.EnableTitleBarBubble(true)
+	.EnableBubbleCtrls(true)
+	.AllowPinning(true)
+	.ColorAndOpacity(CommentColor)
+	.GraphLOD(this, &SGraphNode::GetCurrentLOD)
+	.IsGraphNodeHovered(this, &SGraphNode::IsHovered)
+	.OnToggled(this, &SGraphNode::OnCommentBubbleToggled);
+
+	GetOrAddSlot(ENodeZone::TopCenter)
+	.SlotOffset(TAttribute<FVector2D>(this, &SMissionGraphNodeKnot::GetCommentOffset))
+	.SlotSize( TAttribute<FVector2D>( CommentBubble.Get(), &SCommentBubble::GetSize))
+	.AllowScaling( TAttribute<bool>(CommentBubble.Get(), &SCommentBubble::IsScalingAllowed))
+	.VAlign(VAlign_Top)
+	[
+		CommentBubble.ToSharedRef()
+	];
+	CreatePinWidgets();
+}
+
+const FSlateBrush* SMissionGraphNodeKnot::GetShadowBrush(bool bSelected) const
+{
+	return bSelected ? FAppStyle::GetBrush(TEXT("Graph.Node.ShadowSelected")) : FAppStyle::GetNoBrush();
+}
+
+TSharedPtr<SGraphPin> SMissionGraphNodeKnot::CreatePinWidget(UEdGraphPin* Pin) const
+{
+	return SNew(SMissionGraphPinKnot, Pin);
+}
+
+void SMissionGraphNodeKnot::AddPin(const TSharedRef<SGraphPin>& PinToAdd)
+{
+	PinToAdd->SetOwner(SharedThis(this));
+
+	const UEdGraphPin* PinObj = PinToAdd->GetPinObj();
+	PinToAdd->SetShowLabel(false);
+
+	if (PinToAdd->GetDirection() == EEdGraphPinDirection::EGPD_Input)
+	{
+		LeftNodeBox->AddSlot()
+			.AutoHeight()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			//.Padding(10, 4)
+			[
+				PinToAdd
+			];
+		InputPins.Add(PinToAdd);
+	}
+	else
+	{
+		RightNodeBox->AddSlot()
+			.AutoHeight()
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Center)
+			//.Padding(10, 4)
+			[
+				PinToAdd
+			];
+		OutputPins.Add(PinToAdd);
+	}
+}
+
+FVector2D SMissionGraphNodeKnot::GetCommentOffset() const
+{
+	const bool bBubbleVisible = GraphNode->bCommentBubbleVisible || bAlwaysShowCommentBubble;
+	const float ZoomAmount = GraphNode->bCommentBubblePinned && OwnerGraphPanelPtr.IsValid() ? OwnerGraphPanelPtr.Pin()->GetZoomAmount() : 1.f;
+	const float NodeWidthOffset = bBubbleVisible ?	SKnotNodeDefinitions::KnotCenterBubbleAdjust * ZoomAmount :
+													SKnotNodeDefinitions::KnotCenterButtonAdjust * ZoomAmount;
+
+	return FVector2D(NodeWidthOffset - CommentBubble->GetArrowCenterOffset(), -CommentBubble->GetDesiredSize().Y);
+}
+
+void SMissionGraphNodeKnot::OnCommentBubbleToggled(bool bInCommentBubbleVisible)
+{
+	SGraphNode::OnCommentBubbleToggled(bInCommentBubbleVisible);
+	bAlwaysShowCommentBubble = bInCommentBubbleVisible;
+}
+
+void SMissionGraphNodeKnot::OnCommentTextCommitted(const FText& NewComment, ETextCommit::Type CommitInfo)
+{
+	SGraphNode::OnCommentTextCommitted(NewComment, CommitInfo);
+	if (!bAlwaysShowCommentBubble && !CommentBubble->TextBlockHasKeyboardFocus() && !CommentBubble->IsHovered())
+	{
+		// Hide the comment bubble if visibility hasn't changed
+		CommentBubble->SetCommentBubbleVisibility(/*bVisible =*/false);
+	}
 }
 
 

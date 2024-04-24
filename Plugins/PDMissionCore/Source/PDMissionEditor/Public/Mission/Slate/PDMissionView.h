@@ -17,9 +17,12 @@
 
 #include "GameplayTagContainer.h"
 #include "BlueprintUtilities.h"
+#include "SGraphNodeDefault.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Misc/NotifyHook.h"
+#include "Misc/Attribute.h"
 #include "Templates/SharedPointer.h"
+#include "Delegates/Delegate.h"
 
 #include "Math/Color.h"
 #include "Math/Vector2D.h"
@@ -33,6 +36,11 @@
 #include "Containers/Map.h"
 #include "Containers/UnrealString.h"
 
+
+class SWidget;
+struct FGeometry;
+
+class SCommentBubble;
 class UPDMissionTransitionNode;
 class STextEntryPopup;
 class ITableRow;
@@ -164,6 +172,8 @@ public:
 	virtual FReply OnMouseMove(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent) override;
 	virtual void SetOwner(const TSharedRef<SGraphPanel>& OwnerPanel) override;
 	virtual void AddPin(const TSharedRef<SGraphPin>& PinToAdd) override;
+	virtual void UpdateGraphNode() override;
+	virtual bool UseLowDetailNodeTitles() const override;
 	//~ End SGraphNode Interface
 
 	/** handle mouse down on the node */
@@ -182,17 +192,18 @@ public:
 	void SetDragMarker(bool bEnabled);
 
 protected:
-	TArray< TSharedPtr<SGraphNode> > SubNodes;
-
-	uint32 bDragMarkerVisible : 1;
-	
-	
-	virtual FText GetTitle() const;
-	virtual FText GetDescription() const;
-	virtual EVisibility GetDescriptionVisibility() const;
+	FText GetTitle() const;
+	FText GetDescription() const;
+	EVisibility GetDescriptionVisibility() const;
 
 	virtual FText GetPreviewCornerText() const;
-	virtual const FSlateBrush* GetNameIcon() const;
+	virtual const FSlateBrush* GetNameIcon() const;	
+
+	
+protected:
+	TArray< TSharedPtr<SGraphNode> > SubNodes;
+	uint32 bDragMarkerVisible : 1;
+	TSharedPtr<class SPDLODBranchNode> TitleLODNode;
 };
 
 class SGraphNodeMissionTransition : public SGraphNode
@@ -238,6 +249,106 @@ private:
 
 	TSharedRef<SWidget> GenerateRichTooltip();
 	// TSharedRef<SWidget> GenerateInlineDisplayOrEditingWidget(bool bShowGraphPreview);
+};
+
+
+
+/** The visual representation of a control point meant to adjust how connections are routed, also known as a Reroute node.
+ * The input knot node should have properly implemented ShouldDrawNodeAsControlPointOnly to return true with valid indices for its pins.
+ */
+class PDMISSIONEDITOR_API SMissionGraphNodeKnot : public SGraphNodeDefault
+{
+public:
+	SLATE_BEGIN_ARGS(SMissionGraphNodeKnot) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, class UEdGraphNode* InKnot);
+
+	// SGraphNode interface
+	virtual void UpdateGraphNode() override;
+	virtual const FSlateBrush* GetShadowBrush(bool bSelected) const override;
+	virtual TSharedPtr<SGraphPin> CreatePinWidget(UEdGraphPin* Pin) const override;
+	virtual void AddPin(const TSharedRef<SGraphPin>& PinToAdd) override;
+	virtual void RequestRenameOnSpawn() override { }
+	// End of SGraphNode interface
+
+protected:
+	/** Returns Offset to center comment on the node's only pin */
+	FVector2D GetCommentOffset() const;
+protected:
+
+	/** Toggles the hovered visibility state */
+	virtual void OnCommentBubbleToggled(bool bInCommentBubbleVisible) override;
+
+	/** If bHoveredCommentVisibility is true, hides the comment bubble after a change is committed */
+	virtual void OnCommentTextCommitted(const FText& NewComment, ETextCommit::Type CommitInfo) override;
+
+	/** The hovered visibility state. If false, comment bubble will only appear on hover. */
+	bool bAlwaysShowCommentBubble = false;
+
+	/** SharedPtr to comment bubble */
+	TSharedPtr<SCommentBubble> CommentBubble;
+
+	const FSlateBrush* ShadowBrush = nullptr;
+	const FSlateBrush* ShadowBrushSelected = nullptr;
+};
+
+class PDMISSIONEDITOR_API SMissionGraphPinKnot : public SGraphPin
+{
+public:
+	SLATE_BEGIN_ARGS(SMissionGraphPinKnot) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, UEdGraphPin* InPin);
+
+	// SWidget interface
+	virtual void OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+	// End of SWidget interface
+
+protected:
+	// Begin SGraphPin interface
+	virtual TSharedRef<SWidget>	GetDefaultValueWidget() override;
+	virtual TSharedRef<FDragDropOperation> SpawnPinDragEvent(const TSharedRef<SGraphPanel>& InGraphPanel, const TArray< TSharedRef<SGraphPin> >& InStartingPins) override;
+	virtual FReply OnPinMouseDown(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent) override;
+	virtual FSlateColor GetPinColor() const override;
+	// End SGraphPin interface
+};
+
+
+
+DECLARE_DELEGATE_RetVal_OneParam(TSharedRef<SWidget>, FOnGetActiveDetailSlotContent, bool);
+
+class PDMISSIONEDITOR_API SPDLODBranchNode : public SCompoundWidget
+{
+	SLATE_BEGIN_ARGS(SPDLODBranchNode) : _UseLowDetailSlot(false) {}
+
+	SLATE_ATTRIBUTE(bool, UseLowDetailSlot) // Should the low detail or high detail slot be shown?
+	SLATE_NAMED_SLOT(FArguments, LowDetail) // The low-detail slot
+	SLATE_NAMED_SLOT(FArguments, HighDetail) // The high-detail slot
+
+	SLATE_EVENT(FOnGetActiveDetailSlotContent, OnGetActiveDetailSlotContent)
+SLATE_END_ARGS()
+
+public:
+	SPDLODBranchNode();
+
+	void Construct(const FArguments& InArgs);
+
+	// SWidget interface
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+	// End of SWidget interface
+
+	// Determine whether we need to show the low-detail slot or high-detail slot
+	void RefreshLODSlotContent();
+
+protected:
+	int LastCachedValue; // What kind of slot was shown last frame
+	TAttribute<bool> ShowLowDetailAttr; // The attribute indicating the kind of slot to show
+	TSharedRef<SWidget> ChildSlotLowDetail; // The low-detail child slot
+	TSharedRef<SWidget> ChildSlotHighDetail; // The high-detail child slot
+
+	FOnGetActiveDetailSlotContent OnGetActiveDetailSlotContent;
+
 };
 
 
@@ -330,6 +441,7 @@ class FPDAttributeGraphPinFactory : public FGraphPanelPinFactory
 {
 	virtual TSharedPtr<class SGraphPin> CreatePin(class UEdGraphPin* InPin) const override;
 };
+
 
 /**
 Business Source License 1.1

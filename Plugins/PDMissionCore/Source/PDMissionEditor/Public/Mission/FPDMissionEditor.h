@@ -9,26 +9,10 @@
 #include "EditorUndoClient.h"
 #include "GraphEditor.h"
 
-class SGraphEditor;
-struct FGraphAppearanceInfo;
-
-class FPDMissionDebugger;
-class FPDMissionEditorToolbar;
 class FDocumentTabFactory;
 class FDocumentTracker;
-class IDetailsView;
 class SSearchInMission;
-class UEdGraph;
-class UDataTable;
 class SMissionTreeEditor;
-struct Rect;
-
-class UEdGraphNode;
-
-// Copyright Epic Games, Inc. All Rights Reserved.
-
-#pragma once
-
 
 #define FOnCanConst(Token) \
 	void Token () const;\
