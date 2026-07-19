@@ -31,6 +31,7 @@
 #include <Widgets/Images/SImage.h>
 
 #include <Editor/GraphEditor/Private/DragConnection.h>
+#include <Engine/DataTable.h>
 #include <Framework/Commands/GenericCommands.h>
 #include <TutorialMetaData.h>
 #include <SCommentBubble.h>
@@ -2463,6 +2464,9 @@ void SMissionGraphNodeKnot::OnCommentTextCommitted(const FText& NewComment, ETex
 
 void SPDNewMissionWizard::Construct(const FArguments &InArgs, UEdGraphPin* InPin)
 {
+	OwnerTable = InArgs._OwningTable;
+
+
 	TagCombo = 
 		SNew(SGameplayTagCombo)
 		.Visibility(EVisibility::Visible)
@@ -2501,7 +2505,37 @@ void SPDNewMissionWizard::Construct(const FArguments &InArgs, UEdGraphPin* InPin
 
 FReply SPDNewMissionWizard::OnClicked()
 {
-	// TODO: Create new table entry here using the tag
+	if (nullptr == OwnerTable)
+	{
+		UE_LOG(LogTemp, Error, TEXT("SPDNewMissionWizard::OnClicked - Owning table is invalid"))
+	    return FReply::Handled();
+	}
+	UPDMissionSubsystem* MissionSubsystem = UPDMissionStatics::GetMissionSubsystem();
+	
+	if (OwnerTable->RowStruct == FPDMissionRow::StaticStruct())
+	{
+		OwnerTable->Modify();
+	
+		// cheap name fetch
+		const int32 ChopIndex =  SelectedTag.RequestDirectParent().GetTagName().GetStringLength();
+		FName NewRowName = FName(*SelectedTag.GetTagName().ToString().RightChop(ChopIndex).ToUpper());
+
+		const bool bRowAlreadyExists = nullptr !=  OwnerTable->FindRowUnchecked(NewRowName);
+		if (bRowAlreadyExists)
+		{
+			UE_LOG(LogTemp, Error, TEXT("SPDNewMissionWizard::OnClicked - Row(%s) already exists in Table(%s)"), *NewRowName.ToString(), *OwnerTable->GetName())
+			return FReply::Handled();
+		}
+
+		FPDMissionRow RowData;
+		RowData.Base.MissionBaseTag = SelectedTag;
+		RowData.Base.Ext.mID = OwnerTable->GetRowMap().Num() + 1;
+		RowData.Base.ResolveMissionTypeTag();
+
+		OwnerTable->AddRowInternal(NewRowName, &RowData);
+		OwnerTable->MarkPackageDirty();
+	}
+	
     return FReply::Handled();
 }
 

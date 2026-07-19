@@ -376,7 +376,8 @@ protected:
 class PDMISSIONEDITOR_API SPDNewMissionWizard : public SCompoundWidget
 {
 public:
-	SLATE_BEGIN_ARGS(SPDNewMissionWizard) {}
+	SLATE_BEGIN_ARGS(SPDNewMissionWizard) : _OwningTable(nullptr) {}
+	SLATE_ARGUMENT(UDataTable*, OwningTable)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, UEdGraphPin* InPin);
@@ -390,6 +391,8 @@ public:
 
 	TSharedPtr<SGameplayTagCombo> TagCombo;
 	TSharedPtr<SButton> NewMissionButton;
+	
+	UDataTable* OwnerTable = nullptr;
 
 protected:
 	FGameplayTag SelectedTag;
