@@ -1567,6 +1567,18 @@ void SPDAttributePin::OnAttributeSelected(TSharedPtr<FString> ItemSelected, ESel
 		break;
 	}
 
+	// - Write slate code so Make Mission entry displays some simple creation wizard 
+	// -- 1. The user selects the tag, ensure we hide tags in existing missions from the tag list
+	// -- 2. A button is displayed that says "Create Mission Node". When pressed create new entry in the table
+	// -- 3. Update the nodes selected mission, and then refresh graph
+	const bool bWantsToCreateNewMission = SelectedMissionRowName.ToString() == TAG_MakeNewMission.GetTag().ToString();
+	if (bWantsToCreateNewMission)
+	{		
+		// @todo 1. Add save button to the graph and the call the functions I wrote yesterday for saving/loading to and from the editing table
+		// @todo 2. We need a hidden pin which becomes visible when this option is set, one that lets us select a rowname and mission tag for hte mission entry we are creating
+		return;
+	}	
+
 	
 	// We need to refresh the DataRefPins here, this is the struct view pin that will reflect our selected entry key
 	UPDMissionGraphNode* AsMissionGraphNode = OwnerNodePtr.Pin() != nullptr ?
@@ -1576,19 +1588,7 @@ void SPDAttributePin::OnAttributeSelected(TSharedPtr<FString> ItemSelected, ESel
 		UE_LOG(LogTemp, Warning, TEXT("Calling RefreshDataRefPins(SelectedMissionRowName), SelectedMissionName: %s"), *SelectedMissionRowName.ToString())
 		AsMissionGraphNode->RefreshDataRefPins(SelectedMissionRowName);
 	}
-	
-	//
-	//// Wants to create new mission,
 
-	// if (SelectedMissionRowName.ToString() == FPDMissionUtility::NewMissionRowLabel)
-	if (SelectedMissionRowName.ToString() == TAG_MakeNewMission.GetTag().ToString())
-	{
-		// AsMissionGraphNode->ConstructKeyEntryPin_ForNewRowEntry();
-		
-		// @todo 1. Add save button to the graph and the call the functions I wrote yesterday for saving/loading to and from the editing table
-		// @todo 2. We need a hidden pin which becomes visible when this option is set, one that lets us select a rowname and mission tag for hte mission entry we are creating
-		return;
-	}
 	
 	UDataTable* EditingTable = nullptr;
 	if (FModuleManager::Get().IsModuleLoaded("PDMissionEditor"))
@@ -2461,6 +2461,54 @@ void SMissionGraphNodeKnot::OnCommentTextCommitted(const FText& NewComment, ETex
 	}
 }
 
+void SPDNewMissionWizard::Construct(const FArguments &InArgs, UEdGraphPin* InPin)
+{
+	TagCombo = 
+		SNew(SGameplayTagCombo)
+		.Visibility(EVisibility::Visible)
+		.Tag(this, &SPDNewMissionWizard::GetSelectedTag)
+		.OnTagChanged_Lambda(
+			[&](const FGameplayTag NewTag)
+		{
+			SelectedTag = NewTag;
+		});
+
+	NewMissionButton = 
+		SNew(SButton)
+		.Visibility(EVisibility::Visible)
+		.IsEnabled(this, &SPDNewMissionWizard::IsButtonEnabled)
+		.OnClicked(this, &SPDNewMissionWizard::OnClicked)
+		.Content()
+		[
+			SNew(STextBlock)
+			.Text(FText::AsCultureInvariant(FString(TEXT("Create Mission"))))
+		];
+
+
+	ChildSlot
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		[
+			TagCombo.ToSharedRef()	
+		]
+		+ SHorizontalBox::Slot()
+		[
+			NewMissionButton.ToSharedRef()
+		]
+	];
+}
+
+FReply SPDNewMissionWizard::OnClicked()
+{
+	// TODO: Create new table entry here using the tag
+    return FReply::Handled();
+}
+
+bool SPDNewMissionWizard::IsButtonEnabled() const
+{
+    return SelectedTag != FGameplayTag::EmptyTag;
+}
 
 #undef LOCTEXT_NAMESPACE
 
@@ -2483,7 +2531,7 @@ Additional Use Grant: You may make commercial use of the Licensed Work provided 
 
                       "Total Finances" means the largest of your aggregate gross revenues, entire budget, or funding (no matter the source).
                       "Package" means the collection of files distributed by the Licensor, and derivatives of that collection
-                      and/or of those files..   
+                      and/or of those files..
 
                       "Source" form means the source code, documentation source, and configuration files for the Package, usually in human-readable format.
 

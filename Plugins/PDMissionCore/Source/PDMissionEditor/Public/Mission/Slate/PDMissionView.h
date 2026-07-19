@@ -55,6 +55,7 @@ namespace ESelectInfo { enum Type : int; }
 template <typename ItemType> class STreeView;
 
 class FFPDMissionGraphEditor;
+class SGameplayTagCombo;
 
 /** Item that matched the search results */
 class FMissionTreeNode : public TSharedFromThis<FMissionTreeNode>
@@ -368,6 +369,32 @@ protected:
 	// End SGraphPin interface
 };
 
+// TODO:  Write slate code so Make Mission entry displays some simple creation wizard 
+// -- 1. The user selects the tag, ensure we hide tags in existing missions from the tag list
+// -- 2. A button is displayed that says "Create Mission Node". When pressed create new entry in the table
+// -- 3. Update the nodes selected mission, and then refresh graph
+class PDMISSIONEDITOR_API SPDNewMissionWizard : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SPDNewMissionWizard) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, UEdGraphPin* InPin);
+
+
+	FReply OnClicked();
+	bool IsButtonEnabled() const;
+
+	FGameplayTag GetSelectedTag() const { return SelectedTag; }
+
+
+	TSharedPtr<SGameplayTagCombo> TagCombo;
+	TSharedPtr<SButton> NewMissionButton;
+
+protected:
+	FGameplayTag SelectedTag;
+
+};
 
 
 DECLARE_DELEGATE_RetVal_OneParam(TSharedRef<SWidget>, FOnGetActiveDetailSlotContent, bool);

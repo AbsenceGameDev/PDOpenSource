@@ -133,24 +133,24 @@ int32 UPDMissionGraphSchema::GetNodeSelectionCount(const UEdGraph* Graph) const
 	return GraphEditorPtr->GetNumberOfSelectedNodes();
 }
 
- bool UPDMissionGraphSchema::TryCreateConnection(UEdGraphPin* A, UEdGraphPin* B) const
+ bool UPDMissionGraphSchema::TryCreateConnection(UEdGraphPin* FromPin, UEdGraphPin* ToPin) const
  {
-	const bool bResult = UEdGraphSchema::TryCreateConnection(A,B);
+	const bool bResult = UEdGraphSchema::TryCreateConnection(FromPin,ToPin);
 	
-	// TODO: Handle reverse direction also? Not sure if I want pins to be moved like that just yey so I'll leave it be for now
-	if (bResult && A->Direction == EEdGraphPinDirection::EGPD_Output)
+	// TODO: Handle reverse direction also? Not sure if I want pins to be moved like that just yet so I'll leave it be for now
+	if (bResult && FromPin->Direction == EEdGraphPinDirection::EGPD_Output)
 	{
-		auto[SourceMissionNode, SourcePin] = UPDMissionEditorStatics::NodeOp::ResolveMissionNodeFromKnot(A, EEdGraphPinDirection::EGPD_Input);
+		auto[SourceMissionNode, SourcePin] = UPDMissionEditorStatics::NodeOp::ResolveMissionNodeFromKnot(FromPin, EEdGraphPinDirection::EGPD_Input);
 		if (nullptr == SourceMissionNode)
 		{
-			SourceMissionNode = Cast<UPDMissionGraphNode>(A->GetOwningNode());
-			SourcePin = A;
+			SourceMissionNode = Cast<UPDMissionGraphNode>(FromPin->GetOwningNode());
+			SourcePin = FromPin;
 		}
-		auto[TargetMissionNode, TargetPin] = UPDMissionEditorStatics::NodeOp::ResolveMissionNodeFromKnot(B, EEdGraphPinDirection::EGPD_Output);
+		auto[TargetMissionNode, TargetPin] = UPDMissionEditorStatics::NodeOp::ResolveMissionNodeFromKnot(ToPin, EEdGraphPinDirection::EGPD_Output);
 		if (nullptr == TargetMissionNode)
 		{
-			TargetMissionNode = Cast<UPDMissionGraphNode>(B->GetOwningNode());
-			TargetPin = B;
+			TargetMissionNode = Cast<UPDMissionGraphNode>(ToPin->GetOwningNode());
+			TargetPin = ToPin;
 		}		
 
 		FConnectionParams Params;
