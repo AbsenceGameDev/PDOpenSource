@@ -8,6 +8,8 @@
 
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_MakeNewMission, "Mission.MakeNew");
+UE_DEFINE_GAMEPLAY_TAG(TAG_MissionRootTag, "Mission");
+UE_DEFINE_GAMEPLAY_TAG(TAG_MissionStealthCategory, "Mission.Stealth");
 
 
 //

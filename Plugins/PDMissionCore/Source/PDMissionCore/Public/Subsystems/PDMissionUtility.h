@@ -80,6 +80,9 @@ public:
 	/** @brief Deregisters users tracker events */
 	void DeRegisterUser(const UPDMissionTracker* Tracker);       
 	
+	/** @brief Stores a given row in fast lookup tabled */
+	void CacheRowLookup(UDataTable* MissionTable, FPDMissionRow* TableRow, FName RowName);
+	
 	/** @brief Reads and fills the lookup maps for the missions */
 	void ProcessTablesForFastLookup();                           
 	

@@ -387,6 +387,7 @@ public:
 	bool IsButtonEnabled() const;
 
 	FGameplayTag GetSelectedTag() const { return SelectedTag; }
+	FString GetTagFilter() const;
 
 
 	TSharedPtr<SGameplayTagCombo> TagCombo;

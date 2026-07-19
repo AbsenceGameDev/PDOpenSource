@@ -2462,13 +2462,15 @@ void SMissionGraphNodeKnot::OnCommentTextCommitted(const FText& NewComment, ETex
 	}
 }
 
+//
+// New Mission Wizard 
 void SPDNewMissionWizard::Construct(const FArguments &InArgs, UEdGraphPin* InPin)
 {
 	OwnerTable = InArgs._OwningTable;
 
-
 	TagCombo = 
 		SNew(SGameplayTagCombo)
+		// .Filter([&](){return SPDNewMissionWizard::GetTagFilter();})
 		.Visibility(EVisibility::Visible)
 		.Tag(this, &SPDNewMissionWizard::GetSelectedTag)
 		.OnTagChanged_Lambda(
@@ -2531,8 +2533,10 @@ FReply SPDNewMissionWizard::OnClicked()
 		RowData.Base.MissionBaseTag = SelectedTag;
 		RowData.Base.Ext.mID = OwnerTable->GetRowMap().Num() + 1;
 		RowData.Base.ResolveMissionTypeTag();
+		OwnerTable->AddRow(NewRowName, RowData);
 
-		OwnerTable->AddRowInternal(NewRowName, &RowData);
+		FPDMissionRow* RowDataPtr = (FPDMissionRow*)OwnerTable->GetRowMap().Find(NewRowName);
+		MissionSubsystem->Utility.CacheRowLookup(OwnerTable, RowDataPtr, NewRowName);
 		OwnerTable->MarkPackageDirty();
 	}
 	
@@ -2542,6 +2546,47 @@ FReply SPDNewMissionWizard::OnClicked()
 bool SPDNewMissionWizard::IsButtonEnabled() const
 {
     return SelectedTag != FGameplayTag::EmptyTag;
+}
+
+// crude I know, will get slow
+FString SPDNewMissionWizard::GetTagFilter() const
+{
+	FString Filter;
+	if (nullptr == OwnerTable || FPDMissionRow::StaticStruct() != OwnerTable->GetRowStruct())
+	{
+		return Filter;
+	}
+
+	FGameplayTagContainer Container = UGameplayTagsManager::Get().RequestGameplayTagChildren(TAG_MissionRootTag.GetTag());
+	TArray<FGameplayTag> FilteredTags;
+	Container.GetGameplayTagArray(FilteredTags);
+
+	// TODO: Think of a better way to filter out already used tags, 
+	// Note: as with the  worst case scenario is like 400 mission tags and 200 implemented mission == 80000 cache incoherent accesses will be a SLOG..
+
+	UPDMissionSubsystem* MissionSubsystem = UPDMissionStatics::GetMissionSubsystem();
+	TArray<FGameplayTag> TagsOfExistingMissions;
+	MissionSubsystem->Utility.MissionTagToMIDLookup.GenerateKeyArray(TagsOfExistingMissions);
+	FilteredTags = FilteredTags.FilterByPredicate(
+		[TagsOfExistingMissions](const FGameplayTag& Elem)
+		{
+			return false == TagsOfExistingMissions.Contains(Elem);
+		});
+
+	const int32 TagLim = FilteredTags.Num();
+	for (int32 TagIdx = 0; TagIdx < TagLim; TagIdx++)
+	{
+		const FGameplayTag& AvailableTag = FilteredTags[TagIdx];
+		Filter.Append(AvailableTag.GetTagName().ToString());
+
+		if (TagIdx < TagLim - 1)
+		{
+			Filter.Append(",");
+		}
+	}
+	
+
+	return Filter;
 }
 
 #undef LOCTEXT_NAMESPACE

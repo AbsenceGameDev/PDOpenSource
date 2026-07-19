@@ -160,6 +160,14 @@ void FPDMissionUtility::DeRegisterUser(const UPDMissionTracker* Tracker)
 	UE_LOG(LogLevel, Log, TEXT("FPDMissionUtility::DeRegisterUser (%i)"), ActorID);
 }
 
+void FPDMissionUtility::CacheRowLookup(UDataTable* MissionTable, FPDMissionRow* TableRow, FName RowName)
+{
+	FDataTableRowHandle RowHandle = UPDMissionStatics::CreateRowHandle(MissionTable, RowName);
+	MissionLookup.Add(TableRow->Base.Ext.mID, RowHandle);
+	MissionTagToMIDLookup.Add(TableRow->Base.MissionBaseTag, TableRow->Base.Ext.mID);
+	MissionLookupViaRowName.Add(RowHandle.RowName, RowHandle);	
+}
+
 void FPDMissionUtility::ProcessTablesForFastLookup()
 {
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
@@ -204,11 +212,8 @@ void FPDMissionUtility::ProcessTablesForFastLookup()
 			UE_LOG(LogTemp, Warning, TEXT("TableRow->Base.MissionTag: %s"), *TableRow->Base.MissionBaseTag.ToString())
 			UE_LOG(LogTemp, Warning, TEXT("TableRow->Base.MissionCategory: %s"), *TableRow->Base.GetMissionTypeTag().ToString())
 			UE_LOG(LogTemp, Warning, TEXT("TableRow->Base.mID: %i"), TableRow->Base.Ext.mID)
-			
-			FDataTableRowHandle RowHandle = UPDMissionStatics::CreateRowHandle(MissionTable, RowMapIter.Key());
-			MissionLookup.Add(TableRow->Base.Ext.mID, RowHandle);
-			MissionTagToMIDLookup.Add(TableRow->Base.MissionBaseTag, TableRow->Base.Ext.mID);
-			MissionLookupViaRowName.Add(RowHandle.RowName, RowHandle);
+
+			CacheRowLookup(MissionTable, TableRow, RowMapIter.Key());
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 			SuccessCounter++;
