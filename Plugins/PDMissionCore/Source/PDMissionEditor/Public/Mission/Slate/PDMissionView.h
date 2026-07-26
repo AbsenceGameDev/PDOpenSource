@@ -373,7 +373,7 @@ protected:
 // -- 1. The user selects the tag, ensure we hide tags in existing missions from the tag list
 // -- 2. A button is displayed that says "Create Mission Node". When pressed create new entry in the table
 // -- 3. Update the nodes selected mission, and then refresh graph
-class PDMISSIONEDITOR_API SPDNewMissionWizard : public SCompoundWidget
+class PDMISSIONEDITOR_API SPDNewMissionWizard : public SGraphPin
 {
 public:
 	SLATE_BEGIN_ARGS(SPDNewMissionWizard) : _OwningTable(nullptr) {}
@@ -389,6 +389,11 @@ public:
 	FGameplayTag GetSelectedTag() const { return SelectedTag; }
 	FString GetTagFilter() const;
 
+protected:
+	// Begin SGraphPin interface
+	virtual TSharedRef<SWidget>	GetDefaultValueWidget() override;
+	// End SGraphPin interface	
+
 
 	TSharedPtr<SGameplayTagCombo> TagCombo;
 	TSharedPtr<SButton> NewMissionButton;
@@ -398,6 +403,7 @@ public:
 protected:
 	FGameplayTag SelectedTag;
 
+	friend class FPDAttributeGraphPinFactory;
 };
 
 

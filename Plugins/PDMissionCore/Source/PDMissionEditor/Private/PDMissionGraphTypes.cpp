@@ -46,6 +46,7 @@ const FName FPDMissionGraphTypes::PinCategory_Text("Text");
 const FName FPDMissionGraphTypes::PinCategory_GenericData("GenericData");
 
 const FName FPDMissionGraphTypes::PinCategory_SectionLabel("SectionLabel");
+const FName FPDMissionGraphTypes::PinCategory_NewMission("NewMission");
 const FName FPDMissionGraphTypes::PinCategory_TagSelector("TagSelector");
 const FName FPDMissionGraphTypes::PinCategory_MissionName("MissionName");
 const FName FPDMissionGraphTypes::PinCategory_MissionRow("MissionRow");

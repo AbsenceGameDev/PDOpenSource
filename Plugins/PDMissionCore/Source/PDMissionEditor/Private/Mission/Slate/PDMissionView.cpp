@@ -14,6 +14,7 @@
 #include <ScopedTransaction.h>
 #include <EdGraph/EdGraphPin.h>
 #include <EdGraph/EdGraphSchema.h>
+#include <DataTableEditorUtils.h>
 
 #if WITH_EDITOR
 #include <IStructureDetailsView.h>
@@ -1556,7 +1557,11 @@ void SPDAttributePin::OnAttributeSelected(TSharedPtr<FString> ItemSelected, ESel
 	const FPDMissionUtility* Utility = MissionSubsystem != nullptr ? &MissionSubsystem->Utility : nullptr;
 	if (Utility == nullptr) { return; }	
 	
-	const FName SelectedMissionRowName = Utility->IndexToName.FindRef(Utility->MissionRowNameList.Find(ItemSelected));
+	const FName SelectedMissionRowName = ItemSelected.IsValid() 
+		? *ItemSelected.Get() == TAG_MakeNewMission.GetTag().ToString() 
+			? FName(*TAG_MakeNewMission.GetTag().ToString())
+			: Utility->IndexToName.FindRef(Utility->MissionRowNameList.Find(ItemSelected))
+		: NAME_None;
 
 	switch (SelectInfo)
 	{
@@ -1567,23 +1572,17 @@ void SPDAttributePin::OnAttributeSelected(TSharedPtr<FString> ItemSelected, ESel
 	case ESelectInfo::OnMouseClick:
 		break;
 	}
+	
+	UPDMissionGraphNode* AsMissionGraphNode = OwnerNodePtr.Pin() != nullptr 
+		? Cast<UPDMissionGraphNode>(OwnerNodePtr.Pin()->GetNodeObj()) 
+		: nullptr;
 
 	// - Write slate code so Make Mission entry displays some simple creation wizard 
 	// -- 1. The user selects the tag, ensure we hide tags in existing missions from the tag list
 	// -- 2. A button is displayed that says "Create Mission Node". When pressed create new entry in the table
 	// -- 3. Update the nodes selected mission, and then refresh graph
-	const bool bWantsToCreateNewMission = SelectedMissionRowName.ToString() == TAG_MakeNewMission.GetTag().ToString();
-	if (bWantsToCreateNewMission)
-	{		
-		// @todo 1. Add save button to the graph and the call the functions I wrote yesterday for saving/loading to and from the editing table
-		// @todo 2. We need a hidden pin which becomes visible when this option is set, one that lets us select a rowname and mission tag for hte mission entry we are creating
-		return;
-	}	
 
-	
 	// We need to refresh the DataRefPins here, this is the struct view pin that will reflect our selected entry key
-	UPDMissionGraphNode* AsMissionGraphNode = OwnerNodePtr.Pin() != nullptr ?
-		Cast<UPDMissionGraphNode>(OwnerNodePtr.Pin()->GetNodeObj()) : nullptr;
 	if (AsMissionGraphNode != nullptr)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Calling RefreshDataRefPins(SelectedMissionRowName), SelectedMissionName: %s"), *SelectedMissionRowName.ToString())
@@ -2096,20 +2095,22 @@ const FSlateBrush* SPDLabelAsPin::GetPinIcon() const
 // PinFactory
 TSharedPtr<SGraphPin> FPDAttributeGraphPinFactory::CreatePin(UEdGraphPin* InPin) const
 {
+	const FName& PinCategory = InPin->PinType.PinCategory;
+	const TWeakObjectPtr<UObject>& PinSubCategoryObject = InPin->PinType.PinSubCategoryObject;
 	/* Compare pin-category and subcategory to make sure the pin is of the correct type  */
-	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_MissionName) 
+	if (PinCategory == FPDMissionGraphTypes::PinCategory_MissionName) 
 	{
 		return SNew(SPDAttributePin, InPin); 
 	}
-	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_MissionRowKeyBuilder)
+	if (PinCategory == FPDMissionGraphTypes::PinCategory_MissionRowKeyBuilder)
 	{
 		return SNew(SPDNewKeyDataAttributePin, InPin);  // @todo SPDNewKeyDataAttributePin
 	}
-	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_MissionDataRef && InPin->PinType.PinSubCategoryObject == FPDMissionRow::StaticStruct())
+	if (PinCategory == FPDMissionGraphTypes::PinCategory_MissionDataRef && PinSubCategoryObject == FPDMissionRow::StaticStruct())
 	{
 		return SNew(SPDDataAttributePin, InPin);  // @todo SPDDataAttributePin
 	}
-	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_SectionLabel)
+	if (PinCategory == FPDMissionGraphTypes::PinCategory_SectionLabel)
 	{
 		SPDLabelAsPin::FArguments Args;
 		UPDMissionGraphNode* AsMissionGraphNode = Cast<UPDMissionGraphNode>(InPin->GetOwningNode());
@@ -2119,12 +2120,21 @@ TSharedPtr<SGraphPin> FPDAttributeGraphPinFactory::CreatePin(UEdGraphPin* InPin)
 		}
 		return SArgumentNew(Args, SPDLabelAsPin, InPin);
 	}
-
-	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_TagSelector)
+	if (PinCategory == FPDMissionGraphTypes::PinCategory_NewMission)
+	{
+		UPDMissionSubsystem* MissionSubsystem = UPDMissionStatics::GetMissionSubsystem();
+		TArray<UDataTable*> Tables = MissionSubsystem->Utility.GetAllTables();
+	
+		UPDMissionGraphNode* AsMissionGraphNode = Cast<UPDMissionGraphNode>(InPin->GetOwningNode());
+		SPDNewMissionWizard::FArguments Args;
+		Args.OwningTable(Tables.IsEmpty() ? nullptr : Tables[0]);
+		return SArgumentNew(Args, SPDNewMissionWizard, InPin);
+	}
+	if (PinCategory == FPDMissionGraphTypes::PinCategory_TagSelector)
 	{
 		return SNew(SPDTagSelector, InPin);
 	}
-	if (InPin->PinType.PinCategory == FPDMissionGraphTypes::PinCategory_GenericData)
+	if (PinCategory == FPDMissionGraphTypes::PinCategory_GenericData)
 	{
 		SPDGenericInputWrapper::FArguments Args;
 		const FName InnerPropertyName = InPin->PinType.PinSubCategory;
@@ -2468,6 +2478,12 @@ void SPDNewMissionWizard::Construct(const FArguments &InArgs, UEdGraphPin* InPin
 {
 	OwnerTable = InArgs._OwningTable;
 
+	return SGraphPin::Construct(SGraphPin::FArguments{}, InPin);
+}
+
+TSharedRef<SWidget> SPDNewMissionWizard::GetDefaultValueWidget()
+{
+
 	TagCombo = 
 		SNew(SGameplayTagCombo)
 		// .Filter([&](){return SPDNewMissionWizard::GetTagFilter();})
@@ -2491,8 +2507,7 @@ void SPDNewMissionWizard::Construct(const FArguments &InArgs, UEdGraphPin* InPin
 		];
 
 
-	ChildSlot
-	[
+	return 
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
 		[
@@ -2501,8 +2516,7 @@ void SPDNewMissionWizard::Construct(const FArguments &InArgs, UEdGraphPin* InPin
 		+ SHorizontalBox::Slot()
 		[
 			NewMissionButton.ToSharedRef()
-		]
-	];
+		];
 }
 
 FReply SPDNewMissionWizard::OnClicked()
@@ -2516,11 +2530,13 @@ FReply SPDNewMissionWizard::OnClicked()
 	
 	if (OwnerTable->RowStruct == FPDMissionRow::StaticStruct())
 	{
-		OwnerTable->Modify();
-	
 		// cheap name fetch
-		const int32 ChopIndex =  SelectedTag.RequestDirectParent().GetTagName().GetStringLength();
-		FName NewRowName = FName(*SelectedTag.GetTagName().ToString().RightChop(ChopIndex).ToUpper());
+		constexpr int32 ParentAccessorOffset = 1;
+		const int32 CatChopIndexName =  SelectedTag.RequestDirectParent().RequestDirectParent().GetTagName().GetStringLength();
+		const int32 ChopIndexName =  SelectedTag.RequestDirectParent().GetTagName().GetStringLength();
+		const FString TagString = SelectedTag.GetTagName().ToString();
+		FString NewCategoryName = TagString.Left(ChopIndexName).RightChop(CatChopIndexName + ParentAccessorOffset).ToUpper();
+		FName NewRowName = FName(*FString(NewCategoryName + TagString.RightChop(ChopIndexName + ParentAccessorOffset).ToUpper()));
 
 		const bool bRowAlreadyExists = nullptr !=  OwnerTable->FindRowUnchecked(NewRowName);
 		if (bRowAlreadyExists)
@@ -2533,11 +2549,19 @@ FReply SPDNewMissionWizard::OnClicked()
 		RowData.Base.MissionBaseTag = SelectedTag;
 		RowData.Base.Ext.mID = OwnerTable->GetRowMap().Num() + 1;
 		RowData.Base.ResolveMissionTypeTag();
-		OwnerTable->AddRow(NewRowName, RowData);
+		uint8* RowDataRawPtr = FDataTableEditorUtils::AddRow(OwnerTable, NewRowName);
+		*(FPDMissionRow*)RowDataRawPtr = RowData;
 
-		FPDMissionRow* RowDataPtr = (FPDMissionRow*)OwnerTable->GetRowMap().Find(NewRowName);
-		MissionSubsystem->Utility.CacheRowLookup(OwnerTable, RowDataPtr, NewRowName);
-		OwnerTable->MarkPackageDirty();
+		FPDMissionRow* RowDataPtr = RowDataRawPtr ? (FPDMissionRow*)(RowDataRawPtr) : nullptr;
+		if (RowDataPtr)
+		{
+			MissionSubsystem->Utility.CacheRowLookup(OwnerTable, RowDataPtr, NewRowName);
+			OwnerTable->MarkPackageDirty();
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("SPDNewMissionWizard::OnClicked - Could not find newly create Row(%s) in Table(%s)"), *NewRowName.ToString(), *OwnerTable->GetName())
+		}
 	}
 	
     return FReply::Handled();

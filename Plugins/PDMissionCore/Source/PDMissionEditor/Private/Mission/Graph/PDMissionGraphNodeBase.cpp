@@ -640,9 +640,9 @@ void UPDMissionGraphNode::ReallocateDefaultPins()
 	CreateOutputBranchPins();
 	// CreatePin(EGPD_Output, FPDMissionGraphTypes::PinCategory_LogicalPath, TEXT("Out"));
 
+	const bool bNewMission = SelectedMissionRowName == TAG_MakeNewMission.GetTag().ToString();
 	OptionalPinManager.RebuildPropertyList(ShowPinForProperties, StructType);
-	OptionalPinManager.CreateVisiblePins(ShowPinForProperties, StructType, EGPD_Input, this);
-
+	OptionalPinManager.CreateVisiblePins(ShowPinForProperties, StructType, EGPD_Input, this, bNewMission);
 
 	TArray<UEdGraphPin*> NewPins = Pins.FilterByPredicate(
 		[OldPins](const UEdGraphPin* NewPinElem) -> bool

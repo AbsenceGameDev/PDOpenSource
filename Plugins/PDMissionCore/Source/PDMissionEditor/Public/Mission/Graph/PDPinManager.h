@@ -36,7 +36,7 @@ public:
 
 	// hide and call base in function, as we can't change these declaration in 'FOptionalPinManager' to be virtual
 	void RebuildPropertyList(TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct);
-	void CreateVisiblePins(TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, EEdGraphPinDirection Direction, class UPDMissionGraphNode* TargetNode);
+	void CreateVisiblePins(TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, EEdGraphPinDirection Direction, class UPDMissionGraphNode* TargetNode, bool bIsNewMission = false);
 	
 	/** Helper function to make consistent behavior between nodes that use optional pins */
 	static void CacheShownPins(const TArray<FOptionalPinFromProperty>& OptionalPins, TArray<FName>& OldShownPins);

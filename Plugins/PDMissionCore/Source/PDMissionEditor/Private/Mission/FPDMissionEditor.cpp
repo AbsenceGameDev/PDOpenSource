@@ -788,7 +788,7 @@ TSharedRef<SWidget> FFPDMissionGraphEditor::SpawnMissionTree()
 	}
 
 	FPDMissionEditorModule& PDMissionEditorModule = FModuleManager::GetModuleChecked<FPDMissionEditorModule>("PDMissionEditor");
-	UDataTable* EditingTable = PDMissionEditorModule.GetIntermediaryEditingTable(true);	
+	UDataTable* EditingTable = PDMissionEditorModule.GetIntermediaryEditingTable(false);
 	if (EditingTable == nullptr) // && EditingTable->GetRowMap().Num() > 0)
 	{
 		EditingTable = PDMissionEditorModule.GetIntermediaryEditingTable(true);

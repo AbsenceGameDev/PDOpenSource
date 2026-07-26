@@ -120,7 +120,7 @@ void FPDOptionalPinManager::RebuildProperty(FProperty* TestProperty, FName Categ
 }
 
 //  Tag private member for safe access
-void FPDOptionalPinManager::CreateVisiblePins(TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, EEdGraphPinDirection Direction, UPDMissionGraphNode* TargetNode)
+void FPDOptionalPinManager::CreateVisiblePins(TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, EEdGraphPinDirection Direction, UPDMissionGraphNode* TargetNode, bool bIsNewMission)
 {
 	UE_LOG(LogTemp, Warning, TEXT("MISSIONTEST: FPDOptionalPinManager::CreateVisiblePins"));
 
@@ -138,6 +138,23 @@ void FPDOptionalPinManager::CreateVisiblePins(TArray<FOptionalPinFromProperty>& 
 		// Create the pin
 		if (PropertyEntry.bShowPin == false) { continue; }
 
+		const FStructProperty* StructProperty = CastField<FStructProperty>(OuterProperty);
+		UEdGraphPin* NewPin = nullptr;
+		if (bIsNewMission)
+		{
+			if (nullptr == StructProperty){ return; }
+			// Empty unpinnable category pin that is basically just a label, 
+			// @todo need to manage this better when I am done but this is a proof of concept that will mess up teh pin ordering, so if I map pins I need to take this into account
+			const FName PinName = PropertyEntry.PropertyName;
+			ReturnPinType = FEdGraphPinType(FPDMissionGraphTypes::PinCategory_NewMission, NAME_None, StructProperty->Struct, EPinContainerType::None, false, FEdGraphTerminalType());
+			NewPin = TargetNode->CreatePin(Direction, ReturnPinType, PinName);
+			NewPin->bNotConnectable = true;
+			NewPin->bAllowFriendlyName = true;
+			CustomizePinData(NewPin, PropertyEntry.PropertyName, INDEX_NONE, *OuterProperty, TargetNode, EPDPinCustomizer::SKIPPAST);
+			break;
+		}
+		
+
 		// ignore but step past these:
 		static UScriptStruct* MissionBaseStruct = TBaseStructure<FPDMissionBase>::Get();
 		static UScriptStruct* TickBehaviourStruct = TBaseStructure<FPDMissionTickBehaviour>::Get();
@@ -150,7 +167,6 @@ void FPDOptionalPinManager::CreateVisiblePins(TArray<FOptionalPinFromProperty>& 
 
 		// Filtering out the top-level datatypes and the low level datataype 
 		EPDPinCustomizer CreateTopLevelPin = EPDPinCustomizer::CONTINUE;
-		const FStructProperty* StructProperty = CastField<FStructProperty>(OuterProperty);
 		if (StructProperty != nullptr)
 		{
 			CreateTopLevelPin =
@@ -163,7 +179,6 @@ void FPDOptionalPinManager::CreateVisiblePins(TArray<FOptionalPinFromProperty>& 
 				: EPDPinCustomizer::CONTINUE;
 		}
 
-		UEdGraphPin* NewPin = nullptr;
 		switch (CreateTopLevelPin)
 		{
 		case EPDPinCustomizer::SKIPPAST:
