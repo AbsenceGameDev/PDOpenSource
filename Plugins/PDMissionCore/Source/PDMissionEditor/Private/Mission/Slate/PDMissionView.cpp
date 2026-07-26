@@ -2552,11 +2552,19 @@ FReply SPDNewMissionWizard::OnClicked()
 		uint8* RowDataRawPtr = FDataTableEditorUtils::AddRow(OwnerTable, NewRowName);
 		*(FPDMissionRow*)RowDataRawPtr = RowData;
 
+		
 		FPDMissionRow* RowDataPtr = RowDataRawPtr ? (FPDMissionRow*)(RowDataRawPtr) : nullptr;
 		if (RowDataPtr)
 		{
 			MissionSubsystem->Utility.CacheRowLookup(OwnerTable, RowDataPtr, NewRowName);
 			OwnerTable->MarkPackageDirty();
+			
+			if (UPDMissionGraphNode* MissionNode = Cast<UPDMissionGraphNode>(GraphPinObj->GetOwningNode()))
+			{
+				MissionNode->RefreshDataRefPins(NewRowName);
+				
+				MissionSubsystem->Utility.TrackMissionRow(RowDataPtr, NewRowName);
+			}
 		}
 		else
 		{
@@ -2564,7 +2572,7 @@ FReply SPDNewMissionWizard::OnClicked()
 		}
 	}
 	
-    return FReply::Handled();
+	return FReply::Handled();
 }
 
 bool SPDNewMissionWizard::IsButtonEnabled() const

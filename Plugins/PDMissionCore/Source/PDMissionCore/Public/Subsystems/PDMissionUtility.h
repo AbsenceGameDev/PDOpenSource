@@ -97,6 +97,7 @@ public:
 
 	/** @brief FIlls the cached mission list, body only implemented in editor builds */
 	void FillIntermediaryMissionList(bool bOverwrite);
+	void TrackMissionRow(const FPDMissionRow* MissionRow, FName MissionName);
 
 public:
 	/** @brief Map associating ActorIDs with their mission tracker  */

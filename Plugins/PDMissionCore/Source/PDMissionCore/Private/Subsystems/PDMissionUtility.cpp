@@ -330,14 +330,23 @@ void FPDMissionUtility::FillIntermediaryMissionList(bool bOverwrite)
 			continue;
 		}
 
-		FString BuildString = MissionRow->Base.MissionBaseTag.GetTagName().ToString() + " (" + MissionName.ToString() + ") ";
-		
-		MissionConcatList.Emplace(MakeShared<FString>(BuildString));
-		
-		IndexToName
-		.FindOrAdd(MissionRowNameList.Emplace(MakeShared<FString>(MissionName.ToString())))
-		= MissionName;
+		TrackMissionRow(MissionRow, MissionName);
 	}
-#endif // #if WITH_EDITOR
+#endif // WITH_EDITOR
 	
+}
+
+
+void FPDMissionUtility::TrackMissionRow(const FPDMissionRow* MissionRow, FName MissionName)
+{
+#if WITH_EDITOR
+	check(MissionRow)
+	FString BuildString = MissionRow->Base.MissionBaseTag.GetTagName().ToString() + " (" + MissionName.ToString() + ") ";
+	
+	MissionConcatList.Emplace(MakeShared<FString>(BuildString));
+	
+	IndexToName
+	.FindOrAdd(MissionRowNameList.Emplace(MakeShared<FString>(MissionName.ToString())))
+	= MissionName;	
+#endif // WITH_EDITOR
 }
