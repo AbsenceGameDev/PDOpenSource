@@ -58,9 +58,8 @@ bool UPDMissionGraphNode::CanDuplicateNode() const
 
 bool UPDMissionGraphNode::CanUserDeleteNode() const
 {
-	// This is not working, must be controlled elsewhere. I need to look at the context action schema stuff again I think
-	const bool bIsConnected = nullptr != Pins.FindByPredicate([](const UEdGraphPin* PinElem) -> bool{ return false == PinElem->LinkedTo.IsEmpty(); });
-	return bIsReadOnly || bIsConnected ? false : Super::CanUserDeleteNode();
+	// Resolved, had forgotten to actually assign the initially focused editor upon creating the graph.. fixed now, all these checks are being run
+	return bIsReadOnly ? false : Super::CanUserDeleteNode();
 }
 
 void UPDMissionGraphNode::PrepareForCopying()

@@ -145,6 +145,13 @@ bool FFPDMissionGraphEditor::CanSelectAllNodes() const
 	return true;
 }
 
+// TODO: move to utils/commons file
+static bool IsNodeConnected(UEdGraphNode* Node)
+{
+	if (nullptr == Node) { return false; }
+	return nullptr != Node->Pins.FindByPredicate([](const UEdGraphPin* PinElem) -> bool{ return false == PinElem->LinkedTo.IsEmpty(); });
+}
+
 void FFPDMissionGraphEditor::DeleteNodes() const
 {
 	const TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusGraphEditorPtr.Pin();
@@ -160,24 +167,23 @@ void FFPDMissionGraphEditor::DeleteNodes() const
 	{
 		UEdGraphNode* Node = Cast<UEdGraphNode>(*NodeIt);
 		if (Node == nullptr || Node->CanUserDeleteNode() == false) { continue; }
+
+		if (IsNodeConnected(Node))
+		{
+			// TODO: Update table to reflect removal of node, need to unlink linked paths in the datatable
+		}
 		
 		Node->Modify();
 		Node->DestroyNode();
 	}
 }
 
+// Note, temp approach for now, don't disable  deletion action if any of the nodes on the graph an be deleted, 
+// TODO: need to add the node to the  selection set however, need to figure that out  
 bool FFPDMissionGraphEditor::CanDeleteNodes() const
 {
-	// If any of the nodes can be deleted then we should allow deleting
-	const FGraphPanelSelectionSet SelectedNodes = GetSelectedNodes();
-	for (FGraphPanelSelectionSet::TConstIterator SelectedIter(SelectedNodes); SelectedIter; ++SelectedIter)
-	{
-		const UEdGraphNode* Node = Cast<UEdGraphNode>(*SelectedIter);
-		if (Node == nullptr || Node->CanUserDeleteNode() == false) { continue; }
-		
-		return true;
-	}
-	return false;
+	const TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusGraphEditorPtr.Pin();
+	return CurrentGraphEditor.IsValid();
 }
 
 void FFPDMissionGraphEditor::SearchMissionTree() const
@@ -665,9 +671,11 @@ void FFPDMissionGraphEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>
 {
 	if (FocusGraphEditorPtr.Pin() != InGraphEditor)
 	{
-		FocusGraphEditorPtr = InGraphEditor;
+		FocusGraphEditorPtr = InGraphEditor.ToSharedPtr();
 		FocusedGraphEditorChanged.Broadcast();
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("FFPDMissionGraphEditor::OnGraphEditorFocused -- FocusGraphEditorPtr Valid? : %s"), FocusGraphEditorPtr.IsValid() ? TEXT("TRUE") : TEXT("FALSE"))
 
 	const FGraphPanelSelectionSet CurrentSelection = InGraphEditor->GetSelectedNodes();
 	OnSelectedNodesChanged(CurrentSelection);	
@@ -806,8 +814,10 @@ TSharedRef<SWidget> FFPDMissionGraphEditor::SpawnMissionTree()
 	// Add schema to the graph and add the graph to the root
 	GraphObj->Schema = UPDMissionGraphSchema::StaticClass();
 	GraphObj->AddToRoot();
-	
-	return CreateGraphEditorWidget(GraphObj);
+
+	TSharedRef<SGraphEditor> GraphEditorDock = CreateGraphEditorWidget(GraphObj);
+	OnGraphEditorFocused(GraphEditorDock);
+	return GraphEditorDock;
 }
 
 void FFPDMissionGraphEditor::RegisterToolbarTab(const TSharedRef<FTabManager>& InTabManager)
